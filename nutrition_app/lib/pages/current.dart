@@ -1,5 +1,3 @@
-import 'package:nutrition_app/pages/home.dart';
-
 import '../core/app_export.dart';
 
 class CurrentPage extends StatefulWidget {

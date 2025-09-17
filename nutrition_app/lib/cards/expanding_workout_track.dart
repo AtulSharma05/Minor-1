@@ -263,18 +263,18 @@ class _ExpandingWorkoutTrackerCardState extends State<ExpandingWorkoutTrackerCar
                       onChanged: (text) => _onItemNameChanged(),
                       focusNode: _itemNameFocusNode,
                     ),
-                    if (searchNotifier.WorkoutItems.isNotEmpty)
+                    if (searchNotifier.workoutItems.isNotEmpty)
                       ListView.builder(
                         shrinkWrap: true,
-                        itemCount: searchNotifier.WorkoutItems.length,
+                        itemCount: searchNotifier.workoutItems.length,
                         itemBuilder: (context, index) {
-                          final WorkoutItem = searchNotifier.WorkoutItems[index];
+                          final workoutItem = searchNotifier.workoutItems[index];
                           return ListTile(
-                            title: Text(WorkoutItem.itemName),
+                            title: Text(workoutItem['name']?.toString() ?? 'Unknown Workout'),
+                            subtitle: Text('${workoutItem['calories'] ?? 0} cal, ${workoutItem['duration'] ?? 0} min'),
                             onTap: () {
                               setState(() {
-                                itemNameController.text = WorkoutItem
-                                    .itemName; // Set selected item name in text field
+                                itemNameController.text = workoutItem['name']?.toString() ?? '';
                               });
                             },
                           );

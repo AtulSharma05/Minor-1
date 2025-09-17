@@ -17,12 +17,9 @@ class TrackersPage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: ListView(
               children: const [
-                // Card 1: Camera Card
-                ExpandingImgFoodTrackerCard(title: "Image Food"),
-                // Card 2: Input Fields Card
-                ExpandingFoodTrackerCard(title: "Meal"),
-                // Card 3: Workout Card
+                // Card 1: Workout Card
                 ExpandingWorkoutTrackerCard(title: "Workout"),
+                // More workout-related cards can be added here
               ],
             ),
           ),

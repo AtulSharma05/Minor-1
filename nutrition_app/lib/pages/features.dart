@@ -6,17 +6,19 @@ class FeaturesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<String> titles = [
-      'Nutrition Blogs',
-      'Nutrion Dietplan',
-      'Feature 3',
-      'Feature 4',
+      'Workout Blogs',
+      'Log Workout',
+      'Workout History',
+      'Streak & Rewards',
+      'AI Pose Detection',
     ];
 
     final List<Widget> pages = [
-      NutritionBlogsPage(),
-      DietPlanPage(),
-      const Placeholder(),
-      const Placeholder(),
+      const WorkoutBlogsPage(), // Workout blogs
+      const WorkoutLoggingPage(), // Log new workouts
+      const WorkoutHistoryPage(), // View workout history
+      const StreakDetailsPage(), // View streak details and achievements
+      const PoseDetectionPage(), // AI Pose Detection
     ];
 
     return Scaffold(

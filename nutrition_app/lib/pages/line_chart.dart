@@ -80,14 +80,14 @@ class _LineChartSample6State extends State<LineChartSample6> {
         DateFormat('dd-MM-yyyy').format(now.subtract(const Duration(days: 7)));
     final endDate = DateFormat('dd-MM-yyyy').format(now);
 
-    await notifier.fetchCaloriesConsumed('all', startDate, endDate);
-    print('Protein Data: ${notifier.proteinData}');
-    print('Carbohydrate Data: ${notifier.carbohydrateData}');
-    print('Fat Data: ${notifier.fatData}');
+    await notifier.fetchWorkoutData('all', startDate, endDate);
+    print('Workout Data: ${notifier.workoutData}');
+    print('Weight Lifting Data: ${notifier.weightLiftingData}');
+    print('Cardio Data: ${notifier.cardioData}');
     final allSpots = [
-      ...notifier.proteinData,
-      ...notifier.carbohydrateData,
-      ...notifier.fatData
+      ...notifier.workoutData,
+      ...notifier.weightLiftingData,
+      ...notifier.cardioData
     ];
 
     // Call the function to initialize min and max values based on all spots
@@ -179,17 +179,17 @@ class _LineChartSample6State extends State<LineChartSample6> {
                 ),
                 lineBarsData: [
                   CustomLineChartData.create(
-                    spots: notifier.proteinData,
+                    spots: notifier.workoutData,
                     color1: line1Color1,
                     color2: line1Color2,
                   ),
                   CustomLineChartData.create(
-                    spots: notifier.carbohydrateData,
+                    spots: notifier.weightLiftingData,
                     color1: line2Color1,
                     color2: line2Color2,
                   ),
                   CustomLineChartData.create(
-                    spots: notifier.fatData,
+                    spots: notifier.cardioData,
                     color1: line3Color1,
                     color2: line3Color2,
                   ),

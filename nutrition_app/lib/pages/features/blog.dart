@@ -1,14 +1,14 @@
 import '../../core/app_export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class NutritionBlogsPage extends StatefulWidget {
-  const NutritionBlogsPage({super.key});
+class WorkoutBlogsPage extends StatefulWidget {
+  const WorkoutBlogsPage({super.key});
 
   @override
-  _NutritionBlogsPageState createState() => _NutritionBlogsPageState();
+  _WorkoutBlogsPageState createState() => _WorkoutBlogsPageState();
 }
 
-class _NutritionBlogsPageState extends State<NutritionBlogsPage> {
+class _WorkoutBlogsPageState extends State<WorkoutBlogsPage> {
   String? username;
   String? adminUser;
 
@@ -35,7 +35,7 @@ class _NutritionBlogsPageState extends State<NutritionBlogsPage> {
       create: (_) => BlogNotifier()..fetchBlogs(),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Nutrition Blogs'),
+          title: const Text('Workout Blogs'),
         ),
         body: Consumer<BlogNotifier>(
           builder: (context, blogNotifier, child) {

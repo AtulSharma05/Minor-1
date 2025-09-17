@@ -1,4 +1,5 @@
 import '../core/app_export.dart';
+import '../services/data_service.dart';
 
 class SearchWorkoutNotifier extends ChangeNotifier {
   List<Map<String, dynamic>> _workoutItems = [];
@@ -62,21 +63,19 @@ class LogWorkoutNotifier extends ChangeNotifier {
 
       // Log the workout using DataService
       final result = await DataService.logWorkout(
-        name: itemName,
-        description: 'Workout logged from tracker',
+        name: itemName.isNotEmpty ? itemName : 'Workout',
+        description: 'Effort: $effortLevel, Diary Group: $diaryGroup',
         duration: duration,
         calories: calories,
         category: diaryGroup.isNotEmpty ? diaryGroup : 'General',
         exercises: [exercise],
-        notes: workoutNotes.isNotEmpty ? workoutNotes : null,
+        notes: 'Date: $date, Time: $time',
       );
 
       if (result['success'] == true) {
-        final tokenRewards = result['token_rewards'];
-        final totalTokens = tokenRewards['total_tokens_awarded'] ?? 0;
-        details = "Workout logged successfully! Earned $totalTokens tokens!";
+        details = "Workout logged successfully";
       } else {
-        details = "Failed to log workout: ${result['error'] ?? 'Unknown error'}";
+        details = "Failed to log workout";
       }
     } catch (error) {
       details = "Failed to log workout: $error";

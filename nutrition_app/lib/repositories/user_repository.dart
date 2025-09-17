@@ -2,14 +2,11 @@ import '../data/auth_data_source.dart';
 import '../models/user.dart';
 import 'dart:convert'; // For decoding JSON
 import '../data/chatbot_data_source.dart'; // Import chatbot data source
-import '../data/dietplan_data_source.dart'; // Import diet plan data source
 
 class UserRepository {
   final AuthDataSource _authDataSource = AuthDataSource();
   final ChatbotDataSource _chatbotDataSource =
       ChatbotDataSource(); // Initialize chatbot data source
-  final DietPlanDataSource _dietPlanDataSource =
-      DietPlanDataSource(); // Initialize diet plan data source
 
   Future<bool> signup(User user) async {
     final response = await _authDataSource.signup(user.toJson());
@@ -70,30 +67,31 @@ class UserRepository {
     }
   }
 
-  Future<bool> submitDietDetails(Map<String, String> userDetails) async {
-    final response = await _dietPlanDataSource.submitDetails(userDetails);
-    var responseJson = jsonDecode(response.body);
-    print(responseJson);
+  // TODO: Remove diet plan functionality - replaced with workout features
+  // Future<bool> submitDietDetails(Map<String, String> userDetails) async {
+  //   final response = await _dietPlanDataSource.submitDetails(userDetails);
+  //   var responseJson = jsonDecode(response.body);
+  //   print(responseJson);
 
-    if (response.statusCode == 200 && responseJson['result'] == 'STATUS_OK') {
-      return true;
-    } else {
-      return false;
-    }
-  }
+  //   if (response.statusCode == 200 && responseJson['result'] == 'STATUS_OK') {
+  //     return true;
+  //   } else {
+  //     return false;
+  //   }
+  // }
 
-  Future<String> fetchDietPlan(String username) async {
-    final response =
-        await _dietPlanDataSource.fetchDietPlan({"username": username});
-    print(response);
-    var responseJson = jsonDecode(response.body);
-    print(responseJson);
+  // Future<String> fetchDietPlan(String username) async {
+  //   final response =
+  //       await _dietPlanDataSource.fetchDietPlan({"username": username});
+  //   print(response);
+  //   var responseJson = jsonDecode(response.body);
+  //   print(responseJson);
 
-    if (responseJson['result'] == 'STATUS_OK') {
-      return responseJson['dietplan'];
-    } else if (responseJson['result'] == 'STATUS_DIETPLAN_NOT_APPROVED') {
-      throw Exception('Diet plan not approved yet');
-    }
-    throw Exception('Failed to fetch diet plan');
-  }
+  //   if (responseJson['result'] == 'STATUS_OK') {
+  //     return responseJson['dietplan'];
+  //   } else if (responseJson['result'] == 'STATUS_DIETPLAN_NOT_APPROVED') {
+  //     throw Exception('Diet plan not approved yet');
+  //   }
+  //   throw Exception('Failed to fetch diet plan');
+  // }
 }

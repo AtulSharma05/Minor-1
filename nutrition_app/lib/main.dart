@@ -1,16 +1,20 @@
 import 'core/app_export.dart';
+import 'services/local_storage_service.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment configuration
   await dotenv.load(fileName: ".env");
+  
+  // Initialize local storage
+  await LocalStorageService.initialize();
+  
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
             create: (_) => AuthNotifier()), // Provide AuthNotifier
-        ChangeNotifierProvider(create: (_) => SearchFoodNotifier()),
-        ChangeNotifierProvider(create: (_) => NutritionInfoNotifier()),
-        ChangeNotifierProvider(create: (_) => LogFoodNotifier()),
-        ChangeNotifierProvider(create: (_) => FoodConsumedNotifier()),
         ChangeNotifierProvider(create: (_) => ChatbotNotifier()),
         ChangeNotifierProvider(create: (_) => DashboardNotifier()),
         ChangeNotifierProvider(create: (_) => SearchWorkoutNotifier()),
@@ -30,7 +34,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: AppTheme.theme,
-      title: 'Nutrition App',
+      title: 'Workout Tracker App',
       initialRoute: '/splash',
       routes: {
         '/splash': (context) => const SplashScreen(),
@@ -40,6 +44,13 @@ class MyApp extends StatelessWidget {
         '/signup': (context) => const SignupPage(),
         '/dashboard': (context) => const DashboardPage(),
         '/features': (context) => const FeaturesPage(),
+        '/workout-logging': (context) => const WorkoutLoggingPage(),
+        '/workout_logging': (context) => const WorkoutLoggingPage(),
+        '/workout-history': (context) => const WorkoutHistoryPage(),
+        '/streak-details': (context) => const StreakDetailsPage(),
+        '/rewards': (context) => const RewardsPage(),
+        '/pose_detection': (context) => const PoseDetectionPage(),
+        '/metronome_settings': (context) => const MetronomeSettingsPage(),
       },
     );
   }
