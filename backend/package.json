@@ -1,0 +1,34 @@
+{
+  "name": "workout-tracker-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Workout Tracker Flutter App",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "mongo": "mongod --dbpath=./data/db --port=27017",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["workout", "fitness", "tracker", "api", "nodejs", "mongodb"],
+  "author": "AtulSharma05",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express-rate-limit": "^6.10.0",
+    "helmet": "^7.0.0",
+    "morgan": "^1.10.0",
+    "joi": "^17.9.2",
+    "express-validator": "^7.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

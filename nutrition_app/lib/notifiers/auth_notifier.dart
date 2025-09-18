@@ -46,13 +46,35 @@ class AuthNotifier extends ChangeNotifier {
     try {
       User user = User(username: username, password: password, token: token);
       final result = await _userRepository.login(user);
-      if (result == true) {
+      
+      if (result != null && result['success'] == true) {
         _successMessage = "Login successful";
 
-        // Save login status to shared preferences
+        // Extract user data from backend response
+        final userData = result['userData'];
+        final accessToken = result['token'];
+        
+        // Save login status and user info to shared preferences
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('username', username);
+        await prefs.setString('username', userData['username'] ?? username);
+        await prefs.setString('user_email', userData['email'] ?? '');
+        await prefs.setString('user_fullname', userData['fullName'] ?? '');
+        await prefs.setString('access_token', accessToken ?? '');
         await prefs.setBool('isLoggedIn', true);
+        
+        // Also save user profile using DataService for local storage
+        await DataService.saveUserProfile(
+          username: userData['username'] ?? username,
+          email: userData['email'] ?? '',
+          preferences: {
+            'fullName': userData['fullName'] ?? '',
+            'age': userData['age'],
+            'height': userData['height'],
+            'weight': userData['weight'],
+            'bmi': userData['bmi'],
+            'bmiCategory': userData['bmiCategory'],
+          },
+        );
       } else {
         _errorMessage = "Login failed";
       }
