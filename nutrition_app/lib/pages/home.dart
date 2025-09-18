@@ -277,31 +277,113 @@ class _HomePageState extends State<HomePage> {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 10),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.schedule,
-                  size: 50,
-                  color: Colors.grey[400],
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: DataService.getWorkoutHistory(limit: 3),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Center(child: CircularProgressIndicator()),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  'No recent workouts',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Start your first workout to see it here!',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
+              );
+            }
+
+            final workouts = snapshot.data ?? [];
+            
+            if (workouts.isEmpty) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.schedule,
+                        size: 50,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'No recent workouts',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        'Start your first workout to see it here!',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              );
+            }
+
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: workouts.map((workout) {
+                    final date = DateTime.parse(workout['date']);
+                    final isToday = date.day == DateTime.now().day &&
+                        date.month == DateTime.now().month &&
+                        date.year == DateTime.now().year;
+                    
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.fitness_center,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  workout['name'] ?? 'Workout',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  isToday 
+                                    ? 'Today • ${workout['duration']} min'
+                                    : '${date.day}/${date.month} • ${workout['duration']} min',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '${workout['calories']} cal',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
