@@ -20,7 +20,9 @@ const { globalErrorHandler, notFound } = require('./middleware/errorHandler');
 
 // Import routes (will be created in next steps)
 const authRoutes = require('./routes/auth');
-// const workoutRoutes = require('./routes/workouts');
+const frontendAuthRoutes = require('./routes/frontendAuth'); // Frontend-compatible routes
+const workoutRoutes = require('./routes/workout');
+const workoutLoggingRoutes = require('./routes/workoutLogging'); // Frontend-compatible workout routes
 // const userRoutes = require('./routes/users');
 // const blogRoutes = require('./routes/blogs');
 
@@ -80,7 +82,9 @@ apiRouter.get('/', (req, res) => {
     version: API_VERSION,
     endpoints: {
       auth: `/api/${API_VERSION}/auth`,
+      'auth_user (frontend)': `/api/${API_VERSION}/auth_user`, // Frontend-compatible routes
       workouts: `/api/${API_VERSION}/workouts`,
+      'workout_logging (frontend)': `/api/${API_VERSION}/workout_logging`, // Frontend-compatible workout routes
       users: `/api/${API_VERSION}/users`,
       blogs: `/api/${API_VERSION}/blogs`
     },
@@ -90,7 +94,9 @@ apiRouter.get('/', (req, res) => {
 
 // Mount API routes (will be uncommented as routes are created)
 apiRouter.use('/auth', authRoutes);
-// apiRouter.use('/workouts', workoutRoutes);
+apiRouter.use('/auth_user', frontendAuthRoutes); // Frontend-compatible auth routes
+apiRouter.use('/workouts', workoutRoutes);
+apiRouter.use('/workout_logging', workoutLoggingRoutes); // Frontend-compatible workout routes
 // apiRouter.use('/users', userRoutes);
 // apiRouter.use('/blogs', blogRoutes);
 
