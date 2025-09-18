@@ -15,7 +15,21 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    // DEV bypass logic: if DEV_BYPASS=true in .env and debug mode, set isLoggedIn and username
+    final devBypass = dotenv.env['DEV_BYPASS']?.toLowerCase() == 'true';
+    final devUser = dotenv.env['DEV_BYPASS_USER'] ?? 'dev_user';
+    bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    // Only run bypass in debug mode
+    assert(() {
+      if (devBypass) {
+        prefs.setBool('isLoggedIn', true);
+        prefs.setString('username', devUser);
+        isLoggedIn = true;
+      }
+      return true;
+    }());
 
     // Delay for 3 seconds, then navigate to the appropriate screen
     await Future.delayed(const Duration(seconds: 3));
