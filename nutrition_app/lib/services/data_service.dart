@@ -1,4 +1,6 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/local_workout.dart';
 import 'local_storage_service.dart';
 import 'package:uuid/uuid.dart';
@@ -20,8 +22,39 @@ class DataService {
 
   // ===================== WORKOUT OPERATIONS =====================
 
-  /// Search for workouts (currently only local)
+  /// Search for workouts
   static Future<List<Map<String, dynamic>>> searchWorkouts(String query) async {
+    if (isBackendEnabled && !LocalStorageService.isOfflineMode) {
+      try {
+        final baseUrl = dotenv.env['BASE_URL'] ?? '';
+        final token = LocalStorageService.userToken;
+        
+        if (baseUrl.isNotEmpty && token != null) {
+          final url = Uri.parse('$baseUrl/api/v1/workouts?search=${Uri.encodeComponent(query)}&limit=20');
+          final response = await http.get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+          
+          if (response.statusCode == 200) {
+            final responseData = jsonDecode(response.body);
+            if (responseData['success'] == true) {
+              final List<dynamic> workouts = responseData['data']['workouts'] ?? [];
+              return workouts.map((workout) => workout as Map<String, dynamic>).toList();
+            }
+          }
+          
+          print('Backend workout search failed with status: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Backend workout search failed, using local storage: $e');
+      }
+    }
+    
+    // Use local storage (fallback or default)
     final allWorkouts = LocalStorageService.getAllWorkouts();
     return allWorkouts
         .where((workout) => workout.name.toLowerCase().contains(query.toLowerCase()))
@@ -90,6 +123,37 @@ class DataService {
 
   /// Get workout history
   static Future<List<Map<String, dynamic>>> getWorkoutHistory({int limit = 50}) async {
+    if (isBackendEnabled && !LocalStorageService.isOfflineMode) {
+      try {
+        final baseUrl = dotenv.env['BASE_URL'] ?? '';
+        final token = LocalStorageService.userToken;
+        
+        if (baseUrl.isNotEmpty && token != null) {
+          final url = Uri.parse('$baseUrl/api/v1/workouts?limit=$limit&sortBy=date&sortOrder=desc');
+          final response = await http.get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+          
+          if (response.statusCode == 200) {
+            final responseData = jsonDecode(response.body);
+            if (responseData['success'] == true) {
+              final List<dynamic> workouts = responseData['data']['workouts'] ?? [];
+              return workouts.map((workout) => workout as Map<String, dynamic>).toList();
+            }
+          }
+          
+          print('Backend workout history failed with status: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Backend workout history failed, using local storage: $e');
+      }
+    }
+    
+    // Use local storage (fallback or default)
     final workouts = LocalStorageService.getAllWorkouts();
     workouts.sort((a, b) => b.date.compareTo(a.date)); // Most recent first
     return workouts
@@ -100,6 +164,39 @@ class DataService {
 
   /// Get workout statistics for date range
   static Future<Map<String, dynamic>> getWorkoutStats(DateTime start, DateTime end) async {
+    if (isBackendEnabled && !LocalStorageService.isOfflineMode) {
+      try {
+        final baseUrl = dotenv.env['BASE_URL'] ?? '';
+        final token = LocalStorageService.userToken;
+        
+        if (baseUrl.isNotEmpty && token != null) {
+          final startDate = start.toIso8601String().split('T')[0];
+          final endDate = end.toIso8601String().split('T')[0];
+          final url = Uri.parse('$baseUrl/api/v1/workouts/stats?startDate=$startDate&endDate=$endDate');
+          
+          final response = await http.get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+          
+          if (response.statusCode == 200) {
+            final responseData = jsonDecode(response.body);
+            if (responseData['success'] == true) {
+              return responseData['data'] as Map<String, dynamic>;
+            }
+          }
+          
+          print('Backend workout stats failed with status: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Backend workout stats failed, using local storage: $e');
+      }
+    }
+    
+    // Use local storage (fallback or default)
     final workouts = LocalStorageService.getWorkoutsInRange(start, end);
     
     final totalWorkouts = workouts.length;
@@ -131,6 +228,60 @@ class DataService {
 
   /// Get today's workout progress
   static Future<Map<String, dynamic>> getTodayProgress() async {
+    if (isBackendEnabled && !LocalStorageService.isOfflineMode) {
+      try {
+        final baseUrl = dotenv.env['BASE_URL'] ?? '';
+        final token = LocalStorageService.userToken;
+        
+        if (baseUrl.isNotEmpty && token != null) {
+          final today = DateTime.now().toIso8601String().split('T')[0];
+          final url = Uri.parse('$baseUrl/api/v1/workouts/stats?startDate=$today&endDate=$today');
+          
+          final response = await http.get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+          
+          if (response.statusCode == 200) {
+            final responseData = jsonDecode(response.body);
+            if (responseData['success'] == true) {
+              final apiData = responseData['data'] as Map<String, dynamic>;
+              
+              // Transform API response to match expected format
+              const dailyWorkoutGoal = 1;
+              const dailyDurationGoal = 30;
+              
+              final workoutsCompleted = apiData['completed_workouts'] ?? 0;
+              final durationCompleted = apiData['total_duration'] ?? 0;
+              final caloriesBurned = apiData['total_calories'] ?? 0;
+              
+              final workoutProgress = workoutsCompleted / dailyWorkoutGoal;
+              final durationProgress = durationCompleted / dailyDurationGoal;
+              
+              return {
+                'workouts_completed': workoutsCompleted,
+                'workout_goal': dailyWorkoutGoal,
+                'workout_progress': (workoutProgress * 100).clamp(0, 100).round(),
+                'duration_completed': durationCompleted,
+                'duration_goal': dailyDurationGoal,
+                'duration_progress': (durationProgress * 100).clamp(0, 100).round(),
+                'calories_burned': caloriesBurned,
+                'overall_progress': ((workoutProgress + durationProgress) / 2 * 100).clamp(0, 100).round(),
+              };
+            }
+          }
+          
+          print('Backend today progress failed with status: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Backend today progress failed, using local storage: $e');
+      }
+    }
+    
+    // Use local storage (fallback or default)
     final today = DateTime.now();
     final startOfDay = DateTime(today.year, today.month, today.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
@@ -193,6 +344,58 @@ class DataService {
 
   /// Get user profile
   static Future<Map<String, dynamic>?> getUserProfile() async {
+    if (isBackendEnabled && !LocalStorageService.isOfflineMode) {
+      try {
+        final baseUrl = dotenv.env['BASE_URL'] ?? '';
+        final token = LocalStorageService.userToken;
+        
+        if (baseUrl.isNotEmpty && token != null) {
+          final url = Uri.parse('$baseUrl/api/v1/auth/me');
+          final response = await http.get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+          
+          if (response.statusCode == 200) {
+            final responseData = jsonDecode(response.body);
+            if (responseData['status'] == 'success') {
+              final apiUser = responseData['data']['user'] as Map<String, dynamic>;
+              
+              // Sync API data with local storage
+              final localUser = LocalUser(
+                id: apiUser['_id'] ?? _uuid.v4(),
+                username: apiUser['username'] ?? '',
+                email: apiUser['email'] ?? '',
+                workoutStreak: apiUser['workoutStreak'] ?? 0,
+                totalTokens: apiUser['totalTokens'] ?? 0,
+                lastWorkoutDate: apiUser['lastWorkoutDate'] != null 
+                    ? DateTime.parse(apiUser['lastWorkoutDate'])
+                    : DateTime.now(),
+                preferences: apiUser['preferences'],
+              );
+              
+              await LocalStorageService.saveUser(localUser);
+              
+              return {
+                ...apiUser,
+                'is_logged_in': LocalStorageService.isLoggedIn,
+                'offline_mode': LocalStorageService.isOfflineMode,
+                'backend_enabled': isBackendEnabled,
+              };
+            }
+          }
+          
+          print('Backend user profile failed with status: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Backend user profile failed, using local storage: $e');
+      }
+    }
+    
+    // Use local storage (fallback or default)
     final user = LocalStorageService.getCurrentUser();
     if (user != null) {
       return {
@@ -207,12 +410,81 @@ class DataService {
 
   /// Get current workout streak
   static Future<int> getWorkoutStreak() async {
+    if (isBackendEnabled && !LocalStorageService.isOfflineMode) {
+      try {
+        final profile = await getUserProfile();
+        if (profile != null && profile['workoutStreak'] != null) {
+          return profile['workoutStreak'] as int;
+        }
+      } catch (e) {
+        print('Backend workout streak failed, using local storage: $e');
+      }
+    }
+    
+    // Use local storage (fallback or default)
     final user = LocalStorageService.getCurrentUser();
     return user?.workoutStreak ?? 0;
   }
 
   /// Get detailed streak information
   static Future<Map<String, dynamic>> getStreakDetails() async {
+    if (isBackendEnabled && !LocalStorageService.isOfflineMode) {
+      try {
+        final baseUrl = dotenv.env['BASE_URL'] ?? '';
+        final token = LocalStorageService.userToken;
+        
+        if (baseUrl.isNotEmpty && token != null) {
+          final url = Uri.parse('$baseUrl/api/v1/auth/me');
+          final response = await http.get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+          
+          if (response.statusCode == 200) {
+            final responseData = jsonDecode(response.body);
+            if (responseData['status'] == 'success') {
+              final apiUser = responseData['data']['user'] as Map<String, dynamic>;
+              
+              // If API has streak data, use it
+              if (apiUser['workoutStreak'] != null) {
+                final currentStreak = apiUser['workoutStreak'] as int;
+                final lastWorkoutDate = apiUser['lastWorkoutDate'] != null 
+                    ? DateTime.parse(apiUser['lastWorkoutDate'])
+                    : DateTime.now();
+                
+                final daysSinceLastWorkout = DateTime.now().difference(lastWorkoutDate).inDays;
+                
+                // Calculate next milestone
+                int nextMilestone = 7; // Weekly milestone
+                if (currentStreak >= 7) nextMilestone = 30; // Monthly milestone
+                if (currentStreak >= 30) nextMilestone = 100; // Centenary milestone
+                if (currentStreak >= 100) nextMilestone = ((currentStreak ~/ 50) + 1) * 50; // Every 50 days
+                
+                return {
+                  'current_streak': currentStreak,
+                  'longest_streak': apiUser['longestStreak'] ?? currentStreak,
+                  'last_workout_date': lastWorkoutDate.toIso8601String(),
+                  'days_since_last_workout': daysSinceLastWorkout,
+                  'is_active': daysSinceLastWorkout <= 1,
+                  'next_milestone': nextMilestone,
+                  'days_to_milestone': nextMilestone - currentStreak,
+                  'streak_percentage_to_milestone': currentStreak / nextMilestone * 100,
+                };
+              }
+            }
+          }
+          
+          print('Backend streak details failed with status: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Backend streak details failed, using local storage: $e');
+      }
+    }
+    
+    // Use local storage (fallback or default)
     final user = LocalStorageService.getCurrentUser();
     final currentStreak = user?.workoutStreak ?? 0;
     final lastWorkoutDate = user?.lastWorkoutDate ?? DateTime.now();
