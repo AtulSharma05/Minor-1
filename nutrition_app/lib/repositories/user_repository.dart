@@ -10,8 +10,7 @@ class UserRepository {
 
   Future<bool> signup(User user) async {
     final response = await _authDataSource.signup(user.toJson());
-    var responseJson = jsonDecode(response.body);
-
+    
     if (response.statusCode == 200) {
       print('user created');
       // Handle success, perhaps save a token or return a success status
@@ -22,25 +21,28 @@ class UserRepository {
     }
   }
 
-  Future<bool> login(User user) async {
+  Future<Map<String, dynamic>?> login(User user) async {
     print(user.toJson());
     final response = await _authDataSource.login(user.toJson());
     var responseJson = jsonDecode(response.body);
     print(responseJson);
     if (response.statusCode == 200) {
       print("loggedin");
-      // Handle success, perhaps save a token or return a success status
-      return true;
+      // Return the user data from backend response
+      return {
+        'success': true,
+        'userData': responseJson['data']?['user'],
+        'token': responseJson['data']?['tokens']?['accessToken'],
+      };
     } else {
       print("not logged");
       // Handle error
-      return false;
+      return {'success': false};
     }
   }
 
   Future<bool> logout(User user) async {
     final response = await _authDataSource.logout(user.toJson());
-    var responseJson = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
       // Handle success, perhaps save a token or return a success status
