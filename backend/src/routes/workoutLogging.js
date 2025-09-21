@@ -8,7 +8,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Workout = require('../models/Workout');
+const User = require('../models/User');
 const { catchAsync, APIError } = require('../middleware/errorHandler');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -228,7 +230,7 @@ router.post('/fetch_workout_info', catchAsync(async (req, res) => {
 /**
  * @route   POST /api/v1/workout_logging/log_workout_info
  * @desc    Log workout information (frontend-compatible, saves to database)
- * @access  Public (should be protected in production)
+ * @access  Private (requires authentication)
  * @body    { 
  *   username: string,
  *   selected_workout: string,
@@ -241,7 +243,7 @@ router.post('/fetch_workout_info', catchAsync(async (req, res) => {
  *   diary_group: string
  * }
  */
-router.post('/log_workout_info', catchAsync(async (req, res) => {
+router.post('/log_workout_info', protect, catchAsync(async (req, res) => {
   const {
     username,
     selected_workout,
@@ -302,8 +304,8 @@ router.post('/log_workout_info', catchAsync(async (req, res) => {
     // For now, we'll create a workout without user authentication
     // In production, you'd want to authenticate the user first
     const workoutData = {
-      // Note: We need to handle userId properly - for now using a placeholder
-      userId: new mongoose.Types.ObjectId(), // This should be the actual user's ID
+      // Use the authenticated user's ID from the protect middleware
+      userId: req.user._id,
       exerciseName: selected_workout,
       workoutType: workoutType,
       duration: parseInt(duration_min) || 0,
@@ -313,21 +315,22 @@ router.post('/log_workout_info', catchAsync(async (req, res) => {
       intensityLevel: intensityMap[effort_level] || 'moderate'
     };
 
-    // Create the workout (commented out for now since we need proper user auth)
-    // const workout = await Workout.create(workoutData);
+    // Create the workout with proper user association
+    const workout = await Workout.create(workoutData);
 
-    // For now, just return success to match frontend expectations
+    // Return success with actual workout data
     res.status(200).json({
       result: 'STATUS_OK',
       message: 'Workout logged successfully',
       data: {
-        workout_id: 'temp_id', // Would be workout._id in real implementation
-        logged_at: new Date().toISOString(),
-        username: username,
+        workout_id: workout._id,
+        logged_at: workout.date.toISOString(),
+        username: req.user.username,
         exercise: selected_workout,
         duration: duration_min,
         calories: energy_burned,
-        date: current_date
+        date: current_date,
+        workout: workout
       }
     });
 

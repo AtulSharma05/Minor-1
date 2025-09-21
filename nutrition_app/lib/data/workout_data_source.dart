@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import '../core/app_export.dart';
+import '../services/local_storage_service.dart';
 // Add this import for basename
 
 class WorkoutDataSource {
@@ -8,10 +9,15 @@ class WorkoutDataSource {
   Future<http.Response> searchWorkout(Map<String, dynamic> data) async {
     print(data);
     final url = Uri.parse('$_baseUrl/workout_logging/workout_search');
+    
+    // Get user token for authentication
+    final token = LocalStorageService.userToken;
+    
     final response = await http.post(
       url,
       headers: <String, String>{
         'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
       },
       body: jsonEncode(data),
     );
@@ -23,10 +29,15 @@ class WorkoutDataSource {
       {required Map<String, dynamic> data}) async {
     print(data);
     final url =Uri.parse('$_baseUrl/workout_logging/log_workout_info');
+    
+    // Get user token for authentication
+    final token = LocalStorageService.userToken;
+    
     final response = await http.post(
       url,
       headers: <String, String>{
         'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
       },
       body: jsonEncode(data),
     );
@@ -40,12 +51,16 @@ class WorkoutDataSource {
   }) async {
     final url = Uri.parse('$_baseUrl/workout_logging/fetch_workout_info');
     final dynamic response;
+    
+    // Get user token for authentication
+    final token = LocalStorageService.userToken;
 
     // For non-image requests, send JSON data directly
     response = await http.post(
       url,
       headers: <String, String>{
         'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
       },
       body: jsonEncode(data),
     );
