@@ -48,11 +48,14 @@ class AuthNotifier extends ChangeNotifier {
       final result = await _userRepository.login(user);
       
       if (result != null && result['success'] == true) {
+        print('AUTH_NOTIFIER: Login result success = true');
         _successMessage = "Login successful";
 
         // Extract user data from backend response
         final userData = result['userData'];
         final accessToken = result['token'];
+        print('AUTH_NOTIFIER: userData = $userData');
+        print('AUTH_NOTIFIER: accessToken = $accessToken');
         
         // Save login status and user info to shared preferences
         final prefs = await SharedPreferences.getInstance();
@@ -61,9 +64,11 @@ class AuthNotifier extends ChangeNotifier {
         await prefs.setString('user_fullname', userData['fullName'] ?? '');
         await prefs.setString('access_token', accessToken ?? '');
         await prefs.setBool('isLoggedIn', true);
+        print('AUTH_NOTIFIER: Shared preferences saved');
         
         // Also save user profile using DataService for local storage
-        await DataService.saveUserProfile(
+        print('AUTH_NOTIFIER: About to call DataService.saveUserProfile');
+        final saveResult = await DataService.saveUserProfile(
           username: userData['username'] ?? username,
           email: userData['email'] ?? '',
           preferences: {
@@ -75,10 +80,14 @@ class AuthNotifier extends ChangeNotifier {
             'bmiCategory': userData['bmiCategory'],
           },
         );
+        print('AUTH_NOTIFIER: DataService.saveUserProfile result = $saveResult');
       } else {
+        print('AUTH_NOTIFIER: Login result was null or success = false');
+        print('AUTH_NOTIFIER: result = $result');
         _errorMessage = "Login failed";
       }
     } catch (e) {
+      print('AUTH_NOTIFIER: Exception in login: $e');
       _errorMessage = "Login failed: $e";
     } finally {
       _isLoading = false;
@@ -110,6 +119,9 @@ class AuthNotifier extends ChangeNotifier {
         await prefs.setBool('isLoggedIn', false);
         // Optionally, clear the username as well
         await prefs.remove('username');
+        
+        // Clear user data from local storage to ensure data isolation
+        await LocalStorageService.clearCurrentUser();
       } else {
         _errorMessage = "Logout failed";
       }

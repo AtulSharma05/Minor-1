@@ -38,10 +38,21 @@ class LocalStorageService {
 
   // ===================== WORKOUT OPERATIONS =====================
 
-  /// Save a workout to local storage
+  /// Save a workout to local storage with user scope
   static Future<void> saveWorkout(LocalWorkout workout) async {
+    // Ensure workout has current user's ID
+    final currentUser = getCurrentUser();
+    print('Current user when saving workout: ${currentUser?.username}');
+    
+    if (currentUser != null) {
+      workout.userId = currentUser.username;
+      print('Assigned userId to workout: ${workout.userId}');
+    } else {
+      print('WARNING: No current user found when saving workout!');
+    }
+    
     await _workoutsBox.put(workout.id, workout);
-    print('Workout saved locally: ${workout.name}');
+    print('Workout saved locally for user ${workout.userId}: ${workout.name}');
   }
 
   /// Get a specific workout by ID
@@ -49,25 +60,51 @@ class LocalStorageService {
     return _workoutsBox.get(id);
   }
 
-  /// Get all workouts
+  /// Get all workouts for the current user
   static List<LocalWorkout> getAllWorkouts() {
+    final currentUser = getCurrentUser();
+    if (currentUser == null) {
+      return []; // No user logged in, return empty list
+    }
+    
+    return _workoutsBox.values
+        .where((workout) => workout.userId == currentUser.username)
+        .toList();
+  }
+
+  /// Get all workouts (admin function - not user-scoped)
+  static List<LocalWorkout> getAllWorkoutsForAllUsers() {
     return _workoutsBox.values.toList();
   }
 
-  /// Get workouts for a specific date
+  /// Get workouts for a specific date (current user only)
   static List<LocalWorkout> getWorkoutsForDate(DateTime date) {
+    final currentUser = getCurrentUser();
+    if (currentUser == null) {
+      return [];
+    }
+    
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
     
     return _workoutsBox.values.where((workout) {
-      return workout.date.isAfter(startOfDay) && workout.date.isBefore(endOfDay);
+      return workout.userId == currentUser.username &&
+             workout.date.isAfter(startOfDay) && 
+             workout.date.isBefore(endOfDay);
     }).toList();
   }
 
-  /// Get workouts in a date range
+  /// Get workouts in a date range (current user only)
   static List<LocalWorkout> getWorkoutsInRange(DateTime start, DateTime end) {
+    final currentUser = getCurrentUser();
+    if (currentUser == null) {
+      return [];
+    }
+    
     return _workoutsBox.values.where((workout) {
-      return workout.date.isAfter(start) && workout.date.isBefore(end);
+      return workout.userId == currentUser.username &&
+             workout.date.isAfter(start) && 
+             workout.date.isBefore(end);
     }).toList();
   }
 
@@ -83,22 +120,45 @@ class LocalStorageService {
     print('Workout deleted locally: $id');
   }
 
-  /// Get completed workouts count
+  /// Get completed workouts count for current user
   static int getCompletedWorkoutsCount() {
-    return _workoutsBox.values.where((workout) => workout.isCompleted).length;
+    final currentUser = getCurrentUser();
+    if (currentUser == null) {
+      return 0;
+    }
+    
+    return _workoutsBox.values
+        .where((workout) => workout.userId == currentUser.username && workout.isCompleted)
+        .length;
   }
 
   // ===================== USER OPERATIONS =====================
 
   /// Save user data
   static Future<void> saveUser(LocalUser user) async {
-    await _userBox.put('current_user', user);
-    print('User data saved locally: ${user.username}');
+    try {
+      await _userBox.put('current_user', user);
+      print('User data saved locally: ${user.username}');
+      
+      // Verify save by reading back
+      final savedUser = _userBox.get('current_user');
+      print('Verification - saved user: ${savedUser?.username}');
+    } catch (e) {
+      print('Error saving user: $e');
+      rethrow;
+    }
   }
 
   /// Get current user
   static LocalUser? getCurrentUser() {
-    return _userBox.get('current_user');
+    try {
+      final user = _userBox.get('current_user');
+      print('Getting current user: ${user?.username}');
+      return user;
+    } catch (e) {
+      print('Error getting current user: $e');
+      return null;
+    }
   }
 
   /// Update user workout streak
@@ -129,6 +189,23 @@ class LocalStorageService {
       user.totalTokens += tokensToAdd;
       await saveUser(user);
     }
+  }
+
+  /// Clear current user data (logout)
+  static Future<void> clearCurrentUser() async {
+    await _userBox.delete('current_user');
+    print('Current user data cleared');
+  }
+
+  /// Clear all user data (for switching users)
+  static Future<void> clearAllUserData() async {
+    // Clear current user
+    await clearCurrentUser();
+    
+    // Optionally, you could clear all workouts here if needed
+    // await _workoutsBox.clear();
+    
+    print('All user data cleared');
   }
 
   // ===================== SETTINGS OPERATIONS =====================

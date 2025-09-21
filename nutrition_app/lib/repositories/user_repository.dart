@@ -29,10 +29,11 @@ class UserRepository {
     if (response.statusCode == 200) {
       print("loggedin");
       // Return the user data from backend response
+      // Note: The client_login endpoint returns: {message, user: {username, email_id, token}, refreshToken}
       return {
         'success': true,
-        'userData': responseJson['data']?['user'],
-        'token': responseJson['data']?['tokens']?['accessToken'],
+        'userData': responseJson['user'], // Direct access to user object
+        'token': responseJson['user']?['token'], // Token is inside user object
       };
     } else {
       print("not logged");

@@ -319,7 +319,9 @@ class DataService {
     Map<String, dynamic>? preferences,
   }) async {
     try {
+      print('DataService.saveUserProfile called for: $username');
       final existingUser = LocalStorageService.getCurrentUser();
+      print('Existing user: ${existingUser?.username}');
       
       final user = LocalUser(
         id: existingUser?.id ?? _uuid.v4(),
@@ -331,10 +333,12 @@ class DataService {
         preferences: preferences,
       );
 
+      print('Created user object: ${user.username}');
       await LocalStorageService.saveUser(user);
       await LocalStorageService.setUsername(username);
       await LocalStorageService.setLoggedIn(true);
 
+      print('User profile saved successfully');
       return true;
     } catch (e) {
       print('Failed to save user profile: $e');
