@@ -34,6 +34,9 @@ class LocalWorkout extends HiveObject {
   @HiveField(9)
   String? notes;
 
+  @HiveField(10)
+  String? userId; // User identification for data isolation
+
   LocalWorkout({
     required this.id,
     required this.name,
@@ -45,6 +48,7 @@ class LocalWorkout extends HiveObject {
     required this.exercises,
     this.isCompleted = false,
     this.notes,
+    this.userId,
   });
 
   // Convert to JSON for API calls
@@ -60,6 +64,7 @@ class LocalWorkout extends HiveObject {
       'exercises': exercises.map((e) => e.toJson()).toList(),
       'isCompleted': isCompleted,
       'notes': notes,
+      'userId': userId,
     };
   }
 
@@ -78,6 +83,7 @@ class LocalWorkout extends HiveObject {
           .toList(),
       isCompleted: json['isCompleted'] ?? false,
       notes: json['notes'],
+      userId: json['userId'],
     );
   }
 }
