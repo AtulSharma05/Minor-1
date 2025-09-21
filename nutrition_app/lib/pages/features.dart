@@ -1,4 +1,5 @@
 import '../core/app_export.dart';
+import '../widgets/Commons/icon_feature_card.dart';
 
 class FeaturesPage extends StatelessWidget {
   const FeaturesPage({Key? key}) : super(key: key);
@@ -21,6 +22,23 @@ class FeaturesPage extends StatelessWidget {
       const PoseDetectionPage(), // AI Pose Detection
     ];
 
+    // Map of appropriate icons for each feature
+    final List<IconData> featureIcons = [
+      Icons.article, // Workout Blogs
+      Icons.fitness_center, // Log Workout
+      Icons.history, // Workout History
+      Icons.emoji_events, // Streak & Rewards
+      Icons.camera_alt, // AI Pose Detection
+    ];
+
+    final List<Color> featureColors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+    ];
+
     return Scaffold(
       appBar: CustomAppBar(
         title: "Features",
@@ -35,9 +53,9 @@ class FeaturesPage extends StatelessWidget {
           ),
           itemCount: titles.length, // Adjust the number of cards as needed
           itemBuilder: (context, index) {
-            return FeatureCard(
-              imageUrl:
-                  'assets/features/feature${index + 1}.png', // Example image path
+            return IconFeatureCard(
+              icon: featureIcons[index],
+              iconColor: featureColors[index],
               title: titles[index],
               onTap: () {
                 Navigator.push(
