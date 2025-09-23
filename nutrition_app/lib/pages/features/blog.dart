@@ -43,28 +43,122 @@ class _WorkoutBlogsPageState extends State<WorkoutBlogsPage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            return ListView.builder(
-              itemCount: blogNotifier.blogs.length,
-              itemBuilder: (context, index) {
-                Blog_Item blog = blogNotifier.blogs[index];
-                return Dismissible(
-                  key: Key(blog.title ?? ''),
-                  direction: username == adminUser ? DismissDirection.endToStart : DismissDirection.none,
-                  onDismissed: (direction) async {
-                    await Provider.of<BlogNotifier>(context, listen: false).deleteBlog(blog);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Blog deleted successfully')),
-                    );
-                  },
-                  background: Container(
-                    color: Colors.red,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: const Icon(Icons.delete, color: Colors.white),
+            // Show "Coming Soon" message first
+            return Column(
+              children: [
+                // Coming Soon Banner
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.orange.shade300,
+                        Colors.orange.shade600,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                  child: BlogCard(blog: blog),
-                );
-              },
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.construction,
+                        size: 50,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Coming Soon!',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Workout Blogs feature is under development.\nStay tuned for exciting fitness content!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Existing blogs (if any)
+                if (blogNotifier.blogs.isNotEmpty)
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: blogNotifier.blogs.length,
+                      itemBuilder: (context, index) {
+                        Blog_Item blog = blogNotifier.blogs[index];
+                        return Dismissible(
+                          key: Key(blog.title ?? ''),
+                          direction: username == adminUser ? DismissDirection.endToStart : DismissDirection.none,
+                          onDismissed: (direction) async {
+                            await Provider.of<BlogNotifier>(context, listen: false).deleteBlog(blog);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Blog deleted successfully')),
+                            );
+                          },
+                          background: Container(
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          child: BlogCard(blog: blog),
+                        );
+                      },
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.article_outlined,
+                            size: 80,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No blogs available yet',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Check back soon for fitness tips and workout guides!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             );
           },
         ),

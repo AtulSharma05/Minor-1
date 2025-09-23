@@ -1,5 +1,6 @@
 import '../core/app_export.dart';
 import '../widgets/Commons/icon_feature_card.dart';
+import 'chatbot.dart';
 
 class FeaturesPage extends StatelessWidget {
   const FeaturesPage({Key? key}) : super(key: key);
@@ -11,6 +12,7 @@ class FeaturesPage extends StatelessWidget {
       'Log Workout',
       'Workout History',
       'Streak & Rewards',
+      'Talk to AI/\nChatbot',
       'AI Pose Detection',
     ];
 
@@ -19,6 +21,7 @@ class FeaturesPage extends StatelessWidget {
       null, // Log new workouts - will handle with navigation
       const WorkoutHistoryPage(), // View workout history
       const StreakDetailsPage(), // View streak details and achievements
+      const ChatbotPage(), // Talk to AI/Chatbot
       const PoseDetectionPage(), // AI Pose Detection
     ];
 
@@ -28,6 +31,7 @@ class FeaturesPage extends StatelessWidget {
       Icons.fitness_center, // Log Workout
       Icons.history, // Workout History
       Icons.emoji_events, // Streak & Rewards
+      Icons.chat, // Talk to AI/Chatbot
       Icons.camera_alt, // AI Pose Detection
     ];
 
@@ -36,6 +40,7 @@ class FeaturesPage extends StatelessWidget {
       Colors.green,
       Colors.orange,
       Colors.purple,
+      Colors.teal,
       Colors.red,
     ];
 
