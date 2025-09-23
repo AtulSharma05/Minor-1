@@ -6,7 +6,7 @@ class AuthDataSource {
   final String _baseUrl = dotenv.env['BASE_URL'] ?? '';
 
   Future<http.Response> signup(Map<String, dynamic> data) async {
-    final url = Uri.parse('$_baseUrl/auth_user/signup_user');
+    final url = Uri.parse('$_baseUrl/api/v1/auth_user/signup_user');
     final response = await http.post(
       url,
       headers: <String, String>{
@@ -19,7 +19,7 @@ class AuthDataSource {
   }
 
   Future<http.Response> login(Map<String, dynamic> data) async {
-    final url = Uri.parse('$_baseUrl/auth_user/client_login');
+    final url = Uri.parse('$_baseUrl/api/v1/auth_user/client_login');
     final response = await http.post(
       url,
       headers: <String, String>{
@@ -31,7 +31,7 @@ class AuthDataSource {
   }
 
   Future<http.Response> logout(Map<String, dynamic> data) async {
-    final url = Uri.parse('$_baseUrl/auth_user/client_logout');
+    final url = Uri.parse('$_baseUrl/api/v1/auth_user/client_logout');
     final response = await http.post(
       url,
       headers: <String, String>{

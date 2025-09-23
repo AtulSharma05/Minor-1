@@ -14,9 +14,9 @@ class FeaturesPage extends StatelessWidget {
       'AI Pose Detection',
     ];
 
-    final List<Widget> pages = [
+    final List<Widget?> pages = [
       const WorkoutBlogsPage(), // Workout blogs
-      const WorkoutLoggingPage(), // Log new workouts
+      null, // Log new workouts - will handle with navigation
       const WorkoutHistoryPage(), // View workout history
       const StreakDetailsPage(), // View streak details and achievements
       const PoseDetectionPage(), // AI Pose Detection
@@ -58,10 +58,22 @@ class FeaturesPage extends StatelessWidget {
               iconColor: featureColors[index],
               title: titles[index],
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => pages[index]),
-                );
+                if (index == 1) {
+                  // Special handling for Log Workout with lock check
+                  Navigator.pushNamed(
+                    context,
+                    '/workout_logging',
+                    arguments: {
+                      'workoutType': 'General Fitness',
+                      'difficulty': 'Beginner',
+                    },
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => pages[index]!),
+                  );
+                }
               },
             );
           },

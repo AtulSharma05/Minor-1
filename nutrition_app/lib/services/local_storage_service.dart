@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/local_workout.dart';
+import '../models/local_user.dart';
 
 class LocalStorageService {
   static const String _workoutsBoxName = 'workouts';
@@ -25,10 +26,32 @@ class LocalStorageService {
     Hive.registerAdapter(LocalExerciseAdapter());
     Hive.registerAdapter(LocalUserAdapter());
 
-    // Open boxes
-    _workoutsBox = await Hive.openBox<LocalWorkout>(_workoutsBoxName);
-    _userBox = await Hive.openBox<LocalUser>(_userBoxName);
-    _settingsBox = await Hive.openBox<Map<String, dynamic>>(_settingsBoxName);
+    try {
+      // Try to open boxes normally
+      _workoutsBox = await Hive.openBox<LocalWorkout>(_workoutsBoxName);
+      _userBox = await Hive.openBox<LocalUser>(_userBoxName);
+      _settingsBox = await Hive.openBox<Map<String, dynamic>>(_settingsBoxName);
+    } catch (e) {
+      print('Error opening Hive boxes (likely schema change): $e');
+      print('Attempting to clear and recreate boxes...');
+      
+      try {
+        // Delete existing boxes to handle schema changes
+        await Hive.deleteBoxFromDisk(_workoutsBoxName);
+        await Hive.deleteBoxFromDisk(_userBoxName);
+        await Hive.deleteBoxFromDisk(_settingsBoxName);
+        
+        // Recreate boxes
+        _workoutsBox = await Hive.openBox<LocalWorkout>(_workoutsBoxName);
+        _userBox = await Hive.openBox<LocalUser>(_userBoxName);
+        _settingsBox = await Hive.openBox<Map<String, dynamic>>(_settingsBoxName);
+        
+        print('Successfully recreated Hive boxes');
+      } catch (recreateError) {
+        print('Failed to recreate boxes: $recreateError');
+        rethrow;
+      }
+    }
 
     // Initialize SharedPreferences
     _prefs = await SharedPreferences.getInstance();
@@ -44,15 +67,24 @@ class LocalStorageService {
     final currentUser = getCurrentUser();
     print('Current user when saving workout: ${currentUser?.username}');
     
-    if (currentUser != null) {
-      workout.userId = currentUser.username;
+    if (currentUser != null && currentUser.username != null) {
+      workout.userId = currentUser.username!;
       print('Assigned userId to workout: ${workout.userId}');
     } else {
-      print('WARNING: No current user found when saving workout!');
+      print('WARNING: No current user found or username is null when saving workout!');
     }
     
     await _workoutsBox.put(workout.id, workout);
     print('Workout saved locally for user ${workout.userId}: ${workout.name}');
+    
+    // Debug: Immediately try to retrieve and see if filtering works
+    print('Verification - Total workouts after save: ${_workoutsBox.length}');
+    final retrievedWorkout = _workoutsBox.get(workout.id);
+    print('Verification - Retrieved workout userId: ${retrievedWorkout?.userId}');
+    
+    // Test the filtering logic
+    final allUserWorkouts = getAllWorkouts();
+    print('Verification - getAllWorkouts() returned ${allUserWorkouts.length} workouts');
   }
 
   /// Get a specific workout by ID
@@ -63,13 +95,32 @@ class LocalStorageService {
   /// Get all workouts for the current user
   static List<LocalWorkout> getAllWorkouts() {
     final currentUser = getCurrentUser();
-    if (currentUser == null) {
+    if (currentUser == null || currentUser.username == null) {
+      print('getAllWorkouts: No current user found or username is null!');
       return []; // No user logged in, return empty list
     }
     
-    return _workoutsBox.values
-        .where((workout) => workout.userId == currentUser.username)
+    print('getAllWorkouts: Current user is ${currentUser.username}');
+    print('getAllWorkouts: Total workouts in box: ${_workoutsBox.length}');
+    
+    // Debug: Print all workouts with detailed comparison
+    for (final workout in _workoutsBox.values) {
+      print('getAllWorkouts: Found workout ${workout.name} with userId: "${workout.userId}"');
+      print('getAllWorkouts: Comparing "${workout.userId}" == "${currentUser.username}" = ${workout.userId == currentUser.username}');
+      print('getAllWorkouts: userId length: ${workout.userId?.length}, username length: ${currentUser.username?.length}');
+    }
+    
+    final userWorkouts = _workoutsBox.values
+        .where((workout) {
+          final match = workout.userId == currentUser.username;
+          print('getAllWorkouts: Workout "${workout.name}" matches user? $match');
+          return match;
+        })
         .toList();
+    
+    print('getAllWorkouts: Filtered workouts for user ${currentUser.username}: ${userWorkouts.length}');
+    
+    return userWorkouts;
   }
 
   /// Get all workouts (admin function - not user-scoped)
@@ -80,7 +131,7 @@ class LocalStorageService {
   /// Get workouts for a specific date (current user only)
   static List<LocalWorkout> getWorkoutsForDate(DateTime date) {
     final currentUser = getCurrentUser();
-    if (currentUser == null) {
+    if (currentUser == null || currentUser.username == null) {
       return [];
     }
     
@@ -88,7 +139,7 @@ class LocalStorageService {
     final endOfDay = startOfDay.add(const Duration(days: 1));
     
     return _workoutsBox.values.where((workout) {
-      return workout.userId == currentUser.username &&
+      return workout.userId == currentUser.username! &&
              workout.date.isAfter(startOfDay) && 
              workout.date.isBefore(endOfDay);
     }).toList();
@@ -97,12 +148,12 @@ class LocalStorageService {
   /// Get workouts in a date range (current user only)
   static List<LocalWorkout> getWorkoutsInRange(DateTime start, DateTime end) {
     final currentUser = getCurrentUser();
-    if (currentUser == null) {
+    if (currentUser == null || currentUser.username == null) {
       return [];
     }
     
     return _workoutsBox.values.where((workout) {
-      return workout.userId == currentUser.username &&
+      return workout.userId == currentUser.username! &&
              workout.date.isAfter(start) && 
              workout.date.isBefore(end);
     }).toList();
@@ -123,12 +174,12 @@ class LocalStorageService {
   /// Get completed workouts count for current user
   static int getCompletedWorkoutsCount() {
     final currentUser = getCurrentUser();
-    if (currentUser == null) {
+    if (currentUser == null || currentUser.username == null) {
       return 0;
     }
     
     return _workoutsBox.values
-        .where((workout) => workout.userId == currentUser.username && workout.isCompleted)
+        .where((workout) => workout.userId == currentUser.username! && workout.isCompleted)
         .length;
   }
 
@@ -265,6 +316,43 @@ class LocalStorageService {
     await _prefs.setBool('offline_mode', value);
   }
 
+  // ===================== DEBUG METHODS =====================
+  
+  /// Debug method to print all workouts and user info
+  static void debugPrintAllData() {
+    print('=== DEBUG: LOCAL STORAGE STATE ===');
+    
+    final currentUser = getCurrentUser();
+    print('Current user: ${currentUser?.username} (ID: ${currentUser?.id})');
+    print('User created at: ${currentUser?.createdAt}');
+    print('Is logged in (prefs): ${_prefs.getBool('is_logged_in')}');
+    print('Username (prefs): ${_prefs.getString('username')}');
+    
+    print('\nTotal workouts in database: ${_workoutsBox.length}');
+    
+    for (final workout in _workoutsBox.values) {
+      print('Workout: ${workout.name}');
+      print('  - ID: ${workout.id}');
+      print('  - UserId: "${workout.userId}"');
+      print('  - Date: ${workout.date}');
+      print('  - Completed: ${workout.isCompleted}');
+      print('');
+    }
+    
+    final userWorkouts = getAllWorkouts();
+    print('Filtered workouts for current user: ${userWorkouts.length}');
+    
+    print('=== END DEBUG ===');
+  }
+
+  /// Clear all data for testing
+  static Future<void> debugClearAllData() async {
+    await _workoutsBox.clear();
+    await _userBox.clear();
+    await _prefs.clear();
+    print('DEBUG: All data cleared');
+  }
+
   // ===================== UTILITY METHODS =====================
 
   /// Clear all workout data
@@ -280,6 +368,130 @@ class LocalStorageService {
     await _prefs.remove('username');
     await _prefs.remove('user_token');
     print('User data cleared');
+  }
+
+  // ============ AUTHENTICATION METHODS ============
+  
+  /// Save user account for authentication (stores username, email, password)
+  static Future<bool> saveUserAccount(String username, String email, String password) async {
+    try {
+      // Check if user already exists
+      final existingAccounts = await getStoredAccounts();
+      if (existingAccounts.any((account) => account['username'] == username || account['email'] == email)) {
+        return false; // User already exists
+      }
+      
+      // Store new account
+      final accountKey = 'account_$username';
+      await _prefs.setString(accountKey, '$username|$email|$password');
+      
+      // Keep track of all accounts
+      final accounts = _prefs.getStringList('all_accounts') ?? [];
+      accounts.add(username);
+      await _prefs.setStringList('all_accounts', accounts);
+      
+      print('Account saved locally: $username');
+      return true;
+    } catch (e) {
+      print('Error saving account: $e');
+      return false;
+    }
+  }
+  
+  /// Verify user credentials and login
+  static Future<Map<String, dynamic>?> authenticateUser(String username, String password) async {
+    try {
+      final accountKey = 'account_$username';
+      final accountData = _prefs.getString(accountKey);
+      
+      if (accountData != null) {
+        final parts = accountData.split('|');
+        if (parts.length == 3) {
+          final storedUsername = parts[0];
+          final storedEmail = parts[1];
+          final storedPassword = parts[2];
+          
+          if (storedPassword == password) {
+            // Create and save current user session
+            final localUser = LocalUser(
+              id: storedUsername,
+              username: storedUsername,
+              email: storedEmail,
+              createdAt: DateTime.now(),
+            );
+            
+            await saveUser(localUser);
+            await _prefs.setBool('is_logged_in', true);
+            await _prefs.setString('username', storedUsername);
+            
+            return {
+              'username': storedUsername,
+              'email': storedEmail,
+              'token': 'local_token_$storedUsername',
+            };
+          }
+        }
+      }
+      
+      // Try email authentication as well
+      final accounts = await getStoredAccounts();
+      for (final account in accounts) {
+        if (account['email'] == username && account['password'] == password) {
+          final accountUsername = account['username']!;
+          final accountEmail = account['email']!;
+          
+          final localUser = LocalUser(
+            id: accountUsername,
+            username: accountUsername,
+            email: accountEmail,
+            createdAt: DateTime.now(),
+          );
+          
+          await saveUser(localUser);
+          await _prefs.setBool('is_logged_in', true);
+          await _prefs.setString('username', accountUsername);
+          
+          return {
+            'username': accountUsername,
+            'email': accountEmail,
+            'token': 'local_token_$accountUsername',
+          };
+        }
+      }
+      
+      return null; // Authentication failed
+    } catch (e) {
+      print('Error authenticating user: $e');
+      return null;
+    }
+  }
+  
+  /// Get all stored accounts (for debugging)
+  static Future<List<Map<String, String>>> getStoredAccounts() async {
+    try {
+      final accounts = _prefs.getStringList('all_accounts') ?? [];
+      final List<Map<String, String>> accountList = [];
+      
+      for (final username in accounts) {
+        final accountKey = 'account_$username';
+        final accountData = _prefs.getString(accountKey);
+        if (accountData != null) {
+          final parts = accountData.split('|');
+          if (parts.length == 3) {
+            accountList.add({
+              'username': parts[0],
+              'email': parts[1],
+              'password': parts[2], // Only for internal use
+            });
+          }
+        }
+      }
+      
+      return accountList;
+    } catch (e) {
+      print('Error getting stored accounts: $e');
+      return [];
+    }
   }
 
   /// Clear all local data

@@ -8,7 +8,7 @@ class WorkoutDataSource {
 
   Future<http.Response> searchWorkout(Map<String, dynamic> data) async {
     print(data);
-    final url = Uri.parse('$_baseUrl/workout_logging/workout_search');
+    final url = Uri.parse('$_baseUrl/api/v1/workout_logging/workout_search');
     
     // Get user token for authentication
     final token = LocalStorageService.userToken;
@@ -28,7 +28,7 @@ class WorkoutDataSource {
   Future<http.Response> logWorkout(
       {required Map<String, dynamic> data}) async {
     print(data);
-    final url =Uri.parse('$_baseUrl/workout_logging/log_workout_info');
+    final url =Uri.parse('$_baseUrl/api/v1/workout_logging/log_workout_info');
     
     // Get user token for authentication
     final token = LocalStorageService.userToken;
@@ -49,7 +49,7 @@ class WorkoutDataSource {
     required Map<String, dynamic> data,
     XFile? imageFile,
   }) async {
-    final url = Uri.parse('$_baseUrl/workout_logging/fetch_workout_info');
+    final url = Uri.parse('$_baseUrl/api/v1/workout_logging/fetch_workout_info');
     final dynamic response;
     
     // Get user token for authentication

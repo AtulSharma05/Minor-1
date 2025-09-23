@@ -23,8 +23,27 @@ class _SigninPageState extends State<SigninPage> {
     final authNotifier = Provider.of<AuthNotifier>(context, listen: false);
 
     // Get values from your text fields
-    String username = usernameController.text;
-    String password = passwordController.text;
+    String username = usernameController.text.trim();
+    String password = passwordController.text.trim();
+
+    // Validation
+    if (username.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter both username and password'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Logging in...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
 
     // Call the login function and wait for it to complete
     await authNotifier.login(username, password);
@@ -40,7 +59,10 @@ class _SigninPageState extends State<SigninPage> {
       // Show an error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(authNotifier.errorMessage ?? 'An error occurred')),
+          content: Text(authNotifier.errorMessage ?? 'Login failed. Please check your credentials.'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
       );
     }
   }
@@ -135,6 +157,7 @@ class _SigninPageState extends State<SigninPage> {
                   fieldType: "password",
                   controller: passwordController,
                 ),
+                const SizedBox(height: 20),
 
                 // Row with checkbox and forgot password
                 Row(

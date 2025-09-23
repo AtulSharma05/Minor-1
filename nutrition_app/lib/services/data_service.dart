@@ -2,6 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/local_workout.dart';
+import '../models/local_user.dart';
 import 'local_storage_service.dart';
 import 'package:uuid/uuid.dart';
 
@@ -106,6 +107,16 @@ class DataService {
 
       // Award tokens for completing workout
       final tokenRewards = await _awardTokensForWorkout();
+
+      // Automatically sync workout data after logging
+      print('DataService: Starting automatic sync after workout logging');
+      try {
+        final syncResult = await synchronizeData();
+        print('DataService: Workout sync result: ${syncResult['message']}');
+      } catch (e) {
+        print('DataService: Workout sync failed: $e');
+        // Don't fail workout logging if sync fails
+      }
 
       return {
         'success': true,
@@ -329,8 +340,10 @@ class DataService {
         email: email,
         workoutStreak: existingUser?.workoutStreak ?? 0,
         totalTokens: existingUser?.totalTokens ?? 0,
-        lastWorkoutDate: existingUser?.lastWorkoutDate ?? DateTime.now(),
-        preferences: preferences,
+        lastWorkoutDate: existingUser?.lastWorkoutDate,
+        createdAt: existingUser?.createdAt ?? DateTime.now(),
+        purchasedRewards: existingUser?.purchasedRewards,
+        settings: preferences,
       );
 
       print('Created user object: ${user.username}');
@@ -377,8 +390,11 @@ class DataService {
                 totalTokens: apiUser['totalTokens'] ?? 0,
                 lastWorkoutDate: apiUser['lastWorkoutDate'] != null 
                     ? DateTime.parse(apiUser['lastWorkoutDate'])
+                    : null,
+                createdAt: apiUser['createdAt'] != null 
+                    ? DateTime.parse(apiUser['createdAt'])
                     : DateTime.now(),
-                preferences: apiUser['preferences'],
+                settings: apiUser['preferences'],
               );
               
               await LocalStorageService.saveUser(localUser);
@@ -795,15 +811,21 @@ class DataService {
     if (user != null) {
       final now = DateTime.now();
       final lastWorkout = user.lastWorkoutDate;
-      final daysDiff = now.difference(lastWorkout).inDays;
+      
+      if (lastWorkout != null) {
+        final daysDiff = now.difference(lastWorkout).inDays;
 
-      if (daysDiff == 1) {
-        // Consecutive day - increment streak
-        user.workoutStreak += 1;
-      } else if (daysDiff == 0) {
-        // Same day - no change to streak
+        if (daysDiff == 1) {
+          // Consecutive day - increment streak
+          user.workoutStreak += 1;
+        } else if (daysDiff == 0) {
+          // Same day - no change to streak
+        } else {
+          // Streak broken - reset to 1
+          user.workoutStreak = 1;
+        }
       } else {
-        // Streak broken - reset to 1
+        // First workout ever
         user.workoutStreak = 1;
       }
 
@@ -915,7 +937,7 @@ class DataService {
   static Future<List<Map<String, dynamic>>> getAchievements() async {
     try {
       final workouts = LocalStorageService.getAllWorkouts();
-      final user = LocalStorageService.getCurrentUser();
+      // final user = LocalStorageService.getCurrentUser(); // Unused for now
       final streakDetails = await getStreakDetails();
       final currentStreak = streakDetails['current_streak'] ?? 0;
       final longestStreak = streakDetails['longest_streak'] ?? 0;
@@ -977,6 +999,366 @@ class DataService {
     } catch (e) {
       print('Error getting achievements: $e');
       return [];
+    }
+  }
+
+  // ===================== DATA SYNCHRONIZATION =====================
+
+  /// Full data synchronization between local and backend
+  static Future<Map<String, dynamic>> synchronizeData({bool force = false}) async {
+    if (!isBackendEnabled || LocalStorageService.isOfflineMode) {
+      return {
+        'success': false,
+        'message': 'Backend disabled or in offline mode',
+        'workouts_synced': 0,
+        'profile_synced': false,
+      };
+    }
+
+    try {
+      print('DataService: Starting data synchronization...');
+      
+      final lastSync = LocalStorageService.lastSync;
+      final now = DateTime.now();
+      
+      // Skip if recently synced (within 5 minutes) unless forced
+      if (!force && lastSync != null && now.difference(lastSync).inMinutes < 5) {
+        print('DataService: Skipping sync - recently synchronized');
+        return {
+          'success': true,
+          'message': 'Already synchronized recently',
+          'workouts_synced': 0,
+          'profile_synced': false,
+        };
+      }
+
+      final results = await Future.wait([
+        _syncWorkoutData(),
+        _syncUserProfile(),
+      ]);
+
+      final workoutSyncResult = results[0];
+      final profileSyncResult = results[1];
+
+      // Update last sync timestamp
+      await LocalStorageService.setLastSync(now);
+
+      return {
+        'success': true,
+        'message': 'Synchronization completed',
+        'workouts_synced': workoutSyncResult['synced_count'] ?? 0,
+        'profile_synced': profileSyncResult['success'] ?? false,
+        'last_sync': now.toIso8601String(),
+      };
+
+    } catch (e) {
+      print('DataService: Sync error: $e');
+      return {
+        'success': false,
+        'message': 'Sync failed: $e',
+        'workouts_synced': 0,
+        'profile_synced': false,
+      };
+    }
+  }
+
+  /// Sync workout data between local and backend
+  static Future<Map<String, dynamic>> _syncWorkoutData() async {
+    int syncedCount = 0;
+    
+    try {
+      final baseUrl = dotenv.env['BASE_URL'] ?? '';
+      final token = LocalStorageService.userToken;
+      
+      if (baseUrl.isEmpty || token == null) {
+        throw Exception('Missing backend URL or authentication token');
+      }
+
+      // 1. Upload local workouts that aren't synced to backend
+      final localWorkouts = LocalStorageService.getAllWorkouts();
+      final localOnlyWorkouts = localWorkouts.where((w) => !w.isSynced).toList();
+      
+      print('DataService: Uploading ${localOnlyWorkouts.length} local workouts to backend');
+      
+      for (final workout in localOnlyWorkouts) {
+        try {
+          final response = await http.post(
+            Uri.parse('$baseUrl/api/v1/workouts'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'exerciseName': workout.name,
+              'workoutType': workout.category.toLowerCase(),
+              'duration': workout.duration,
+              'caloriesBurned': workout.calories,
+              'date': workout.date.toIso8601String(),
+              'sets': workout.exercises.isNotEmpty ? workout.exercises.first.sets : 1,
+              'reps': workout.exercises.isNotEmpty ? workout.exercises.first.reps : 1,
+              'weight': workout.exercises.isNotEmpty ? workout.exercises.first.weight : null,
+              'intensityLevel': _determineIntensityLevel(workout.calories, workout.duration),
+              'notes': workout.notes,
+            }),
+          );
+
+          if (response.statusCode == 201) {
+            // Mark as synced locally
+            final updatedWorkout = workout.copyWith(isSynced: true);
+            await LocalStorageService.saveWorkout(updatedWorkout);
+            syncedCount++;
+            print('DataService: Uploaded workout: ${workout.name}');
+          } else {
+            print('DataService: Failed to upload workout ${workout.name}: ${response.statusCode}');
+          }
+        } catch (e) {
+          print('DataService: Error uploading workout ${workout.name}: $e');
+        }
+      }
+
+      // 2. Download new workouts from backend
+      final lastSync = LocalStorageService.lastSync;
+      String url = '$baseUrl/api/v1/workouts?limit=100&sortBy=date&sortOrder=desc';
+      
+      if (lastSync != null) {
+        final lastSyncDate = lastSync.toIso8601String().split('T')[0];
+        url += '&startDate=$lastSyncDate';
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        if (responseData['success'] == true) {
+          final List<dynamic> backendWorkouts = responseData['data']['workouts'] ?? [];
+          
+          print('DataService: Downloaded ${backendWorkouts.length} workouts from backend');
+          
+          for (final backendWorkout in backendWorkouts) {
+            try {
+              // Convert backend workout to local format
+              final localWorkout = LocalWorkout(
+                id: backendWorkout['_id'] ?? _uuid.v4(),
+                name: backendWorkout['exerciseName'] ?? 'Unknown',
+                description: backendWorkout['notes'] ?? '',
+                duration: backendWorkout['duration'] ?? 0,
+                calories: backendWorkout['caloriesBurned'] ?? 0,
+                category: _capitalizeFirst(backendWorkout['workoutType'] ?? 'other'),
+                date: DateTime.parse(backendWorkout['date'] ?? DateTime.now().toIso8601String()),
+                exercises: [
+                  LocalExercise(
+                    name: backendWorkout['exerciseName'] ?? 'Exercise',
+                    sets: backendWorkout['sets'] ?? 1,
+                    reps: backendWorkout['reps'] ?? 1,
+                    weight: backendWorkout['weight']?.toDouble(),
+                  )
+                ],
+                isCompleted: true,
+                notes: backendWorkout['notes'],
+                isSynced: true, // Mark as synced since it came from backend
+              );
+
+              // Check if workout already exists locally
+              final existingWorkout = LocalStorageService.getWorkout(localWorkout.id);
+              if (existingWorkout == null) {
+                await LocalStorageService.saveWorkout(localWorkout);
+                print('DataService: Saved new workout from backend: ${localWorkout.name}');
+              }
+            } catch (e) {
+              print('DataService: Error processing backend workout: $e');
+            }
+          }
+        }
+      }
+
+      return {
+        'success': true,
+        'synced_count': syncedCount,
+      };
+
+    } catch (e) {
+      print('DataService: Workout sync error: $e');
+      return {
+        'success': false,
+        'synced_count': syncedCount,
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /// Sync user profile data
+  static Future<Map<String, dynamic>> _syncUserProfile() async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL'] ?? '';
+      final token = LocalStorageService.userToken;
+      
+      if (baseUrl.isEmpty || token == null) {
+        throw Exception('Missing backend URL or authentication token');
+      }
+
+      // Get local user data
+      final currentUser = LocalStorageService.getCurrentUser();
+      if (currentUser == null) {
+        return {'success': false, 'error': 'No local user data'};
+      }
+
+      // 1. Upload local profile changes to backend (if needed)
+      // This would require tracking which profile fields have changed
+      
+      // 2. Download latest profile from backend
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/v1/auth_user/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        if (responseData['success'] == true) {
+          final backendProfile = responseData['user'];
+          
+          // Update local profile with backend data
+          await saveUserProfile(
+            username: backendProfile['username'] ?? currentUser.username,
+            email: backendProfile['email'] ?? '',
+            preferences: {
+              'fullName': backendProfile['fullName'] ?? '',
+              'age': backendProfile['age'],
+              'height': backendProfile['height'],
+              'weight': backendProfile['weight'],
+              'bmi': backendProfile['bmi'],
+              'bmiCategory': backendProfile['bmiCategory'],
+            },
+          );
+          
+          print('DataService: Profile synced successfully');
+          return {'success': true};
+        }
+      }
+
+      return {'success': false, 'error': 'Failed to fetch profile from backend'};
+
+    } catch (e) {
+      print('DataService: Profile sync error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Helper method to determine workout intensity
+  static String _determineIntensityLevel(int calories, int duration) {
+    if (duration == 0) return 'low';
+    final caloriesPerMinute = calories / duration;
+    
+    if (caloriesPerMinute >= 10) return 'high';
+    if (caloriesPerMinute >= 6) return 'moderate';
+    return 'low';
+  }
+
+  /// Helper method to capitalize first letter
+  static String _capitalizeFirst(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
+  /// Background sync method (call periodically or on app resume)
+  static Future<void> backgroundSync() async {
+    if (!isBackendEnabled || LocalStorageService.isOfflineMode) return;
+    
+    try {
+      print('DataService: Running background sync...');
+      final result = await synchronizeData();
+      print('DataService: Background sync completed: ${result['message']}');
+    } catch (e) {
+      print('DataService: Background sync failed: $e');
+    }
+  }
+
+  /// Manual sync trigger for UI
+  static Future<Map<String, dynamic>> manualSync() async {
+    return await synchronizeData(force: true);
+  }
+
+  /// Get workout unlock status for progression system
+  static Future<Map<String, dynamic>> getWorkoutUnlockStatus() async {
+    try {
+      final allWorkouts = LocalStorageService.getAllWorkouts();
+      final streakDetails = await getStreakDetails();
+      final currentStreak = streakDetails['current_streak'] ?? 0;
+      final totalWorkouts = allWorkouts.length;
+
+      return {
+        'totalWorkouts': totalWorkouts,
+        'currentStreak': currentStreak,
+        'unlockStatus': {
+          'beginner': true, // Always unlocked
+          'intermediate': totalWorkouts >= 3,
+          'advanced': totalWorkouts >= 10,
+          'elite': totalWorkouts >= 20 && currentStreak >= 7,
+        },
+      };
+    } catch (e) {
+      print('Error getting unlock status: $e');
+      return {
+        'totalWorkouts': 0,
+        'currentStreak': 0,
+        'unlockStatus': {
+          'beginner': true,
+          'intermediate': false,
+          'advanced': false,
+          'elite': false,
+        },
+      };
+    }
+  }
+
+  /// Add demo workout data for showcase
+  static Future<void> addDemoWorkouts() async {
+    try {
+      final demoWorkouts = [
+        {
+          'name': 'Morning Walk',
+          'description': 'Light cardio exercise',
+          'duration': 20,
+          'calories': 100,
+          'category': 'Cardio',
+        },
+        {
+          'name': 'Push-ups',
+          'description': 'Basic strength training',
+          'duration': 10,
+          'calories': 50,
+          'category': 'Strength',
+        },
+        {
+          'name': 'Yoga Stretching',
+          'description': 'Flexibility and relaxation',
+          'duration': 15,
+          'calories': 75,
+          'category': 'Flexibility',
+        },
+      ];
+
+      print('Adding demo workouts for showcase...');
+      for (final workout in demoWorkouts) {
+        await logWorkout(
+          name: workout['name'] as String,
+          description: workout['description'] as String,
+          duration: workout['duration'] as int,
+          calories: workout['calories'] as int,
+          category: workout['category'] as String,
+        );
+      }
+      print('Demo workouts added successfully');
+    } catch (e) {
+      print('Error adding demo workouts: $e');
     }
   }
 }

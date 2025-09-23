@@ -17,6 +17,7 @@ class AuthNotifier extends ChangeNotifier {
     _successMessage = null;
     notifyListeners();
     final token = dotenv.env['TOKEN'] ?? '';
+    
     try {
       User user = User(
           username: username,
@@ -24,12 +25,14 @@ class AuthNotifier extends ChangeNotifier {
           password: password,
           token: token);
       final result = await _userRepository.signup(user);
+      
       if (result == true) {
-        _successMessage = "Signup successful";
+        _successMessage = "Account created successfully";
       } else {
-        _errorMessage = "Signup failed";
+        _errorMessage = "Signup failed. User might already exist.";
       }
     } catch (e) {
+      print('AUTH_NOTIFIER: Exception in signup: $e');
       _errorMessage = "Signup failed: $e";
     } finally {
       _isLoading = false;
@@ -43,9 +46,14 @@ class AuthNotifier extends ChangeNotifier {
     _successMessage = null;
     notifyListeners();
     final token = dotenv.env['TOKEN'] ?? '';
+    
+    print('AUTH_NOTIFIER: Starting login for user: $username');
+    
     try {
       User user = User(username: username, password: password, token: token);
       final result = await _userRepository.login(user);
+      
+      print('AUTH_NOTIFIER: Login result received: $result');
       
       if (result != null && result['success'] == true) {
         print('AUTH_NOTIFIER: Login result success = true');
@@ -62,7 +70,7 @@ class AuthNotifier extends ChangeNotifier {
         await prefs.setString('username', userData['username'] ?? username);
         await prefs.setString('user_email', userData['email'] ?? '');
         await prefs.setString('user_fullname', userData['fullName'] ?? '');
-        await prefs.setString('access_token', accessToken ?? '');
+        await prefs.setString('user_token', accessToken ?? ''); // Fixed: use 'user_token' instead of 'access_token'
         await prefs.setBool('isLoggedIn', true);
         print('AUTH_NOTIFIER: Shared preferences saved');
         
@@ -81,14 +89,24 @@ class AuthNotifier extends ChangeNotifier {
           },
         );
         print('AUTH_NOTIFIER: DataService.saveUserProfile result = $saveResult');
+        
+        // Automatically sync data after successful login
+        print('AUTH_NOTIFIER: Starting automatic data sync after login');
+        try {
+          final syncResult = await DataService.synchronizeData();
+          print('AUTH_NOTIFIER: Login sync result: ${syncResult['message']}');
+        } catch (e) {
+          print('AUTH_NOTIFIER: Login sync failed: $e');
+          // Don't fail login if sync fails
+        }
       } else {
         print('AUTH_NOTIFIER: Login result was null or success = false');
         print('AUTH_NOTIFIER: result = $result');
-        _errorMessage = "Login failed";
+        _errorMessage = result?['error'] ?? "Invalid username or password. Please try again.";
       }
     } catch (e) {
       print('AUTH_NOTIFIER: Exception in login: $e');
-      _errorMessage = "Login failed: $e";
+      _errorMessage = "Connection error. Please check your internet connection and try again.";
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -108,6 +126,16 @@ class AuthNotifier extends ChangeNotifier {
     String? username = prefs.getString('username');
 
     try {
+      // Sync any pending changes before logout
+      print('AUTH_NOTIFIER: Syncing data before logout');
+      try {
+        final syncResult = await DataService.synchronizeData();
+        print('AUTH_NOTIFIER: Logout sync result: ${syncResult['message']}');
+      } catch (e) {
+        print('AUTH_NOTIFIER: Logout sync failed: $e');
+        // Continue with logout even if sync fails
+      }
+      
       // Create the User object with the retrieved username
       User user = User(username: username);
       final result = await _userRepository.logout(user);
@@ -119,6 +147,9 @@ class AuthNotifier extends ChangeNotifier {
         await prefs.setBool('isLoggedIn', false);
         // Optionally, clear the username as well
         await prefs.remove('username');
+        await prefs.remove('user_token'); // Clear the authentication token
+        await prefs.remove('user_email');
+        await prefs.remove('user_fullname');
         
         // Clear user data from local storage to ensure data isolation
         await LocalStorageService.clearCurrentUser();

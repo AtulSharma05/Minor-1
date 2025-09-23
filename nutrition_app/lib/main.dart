@@ -1,5 +1,7 @@
 import 'core/app_export.dart';
 import 'services/local_storage_service.dart';
+import 'services/data_service.dart';
+import 'widgets/workout_route_guard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,8 +29,40 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Trigger background sync when app starts
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      DataService.backgroundSync();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Trigger background sync when app resumes
+    if (state == AppLifecycleState.resumed) {
+      DataService.backgroundSync();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,8 +78,8 @@ class MyApp extends StatelessWidget {
         '/signup': (context) => const SignupPage(),
         '/dashboard': (context) => const DashboardPage(),
         '/features': (context) => const FeaturesPage(),
-        '/workout-logging': (context) => const WorkoutLoggingPage(),
-        '/workout_logging': (context) => const WorkoutLoggingPage(),
+        '/workout-logging': (context) => const WorkoutRouteGuard(),
+        '/workout_logging': (context) => const WorkoutRouteGuard(),
         '/workout-history': (context) => const WorkoutHistoryPage(),
         '/streak-details': (context) => const StreakDetailsPage(),
         '/rewards': (context) => const RewardsPage(),

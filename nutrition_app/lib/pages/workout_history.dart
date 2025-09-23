@@ -42,9 +42,14 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage> {
   }
 
   Future<void> _navigateToLogWorkout() async {
-    final result = await Navigator.push(
+    // Navigate to basic beginner workout (always available)
+    final result = await Navigator.pushNamed(
       context,
-      MaterialPageRoute(builder: (context) => const WorkoutLoggingPage()),
+      '/workout_logging',
+      arguments: {
+        'workoutType': 'General Fitness',
+        'difficulty': 'Beginner',
+      },
     );
     
     if (result == true) {

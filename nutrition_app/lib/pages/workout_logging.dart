@@ -4,7 +4,14 @@ import '../core/app_export.dart';
 // import 'package:provider/provider.dart';
 
 class WorkoutLoggingPage extends StatefulWidget {
-  const WorkoutLoggingPage({Key? key}) : super(key: key);
+  final String? workoutType;
+  final String? difficulty;
+  
+  const WorkoutLoggingPage({
+    Key? key,
+    this.workoutType,
+    this.difficulty,
+  }) : super(key: key);
 
   @override
   _WorkoutLoggingPageState createState() => _WorkoutLoggingPageState();
@@ -28,11 +35,32 @@ class _WorkoutLoggingPageState extends State<WorkoutLoggingPage> {
   List<Exercise> _exercises = [];
   bool _isLoading = false;
   int _currentTokens = 0;
+  String? _workoutType;
+  String? _difficulty;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentTokens();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Get arguments passed from home page
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      _workoutType = args['workoutType'] ?? widget.workoutType;
+      _difficulty = args['difficulty'] ?? widget.difficulty;
+    } else {
+      _workoutType = widget.workoutType;
+      _difficulty = widget.difficulty;
+    }
+    
+    // Set initial workout name if not already set
+    if (_nameController.text.isEmpty && _workoutType != null && _difficulty != null) {
+      _nameController.text = '$_difficulty $_workoutType Session';
+    }
   }
 
   Future<void> _loadCurrentTokens() async {
@@ -80,6 +108,53 @@ class _WorkoutLoggingPageState extends State<WorkoutLoggingPage> {
         ),
       );
       return;
+    }
+
+    // Check if this workout type is locked
+    if (_difficulty != null) {
+      final unlockStatus = await DataService.getWorkoutUnlockStatus();
+      bool isUnlocked = false;
+      
+      switch (_difficulty) {
+        case 'Beginner':
+          isUnlocked = true; // Beginner is always unlocked
+          break;
+        case 'Intermediate':
+          isUnlocked = unlockStatus['totalWorkouts'] >= 3;
+          break;
+        case 'Advanced':
+          isUnlocked = unlockStatus['totalWorkouts'] >= 10 && unlockStatus['currentStreak'] >= 3;
+          break;
+        case 'Elite':
+          isUnlocked = unlockStatus['totalWorkouts'] >= 20 && unlockStatus['currentStreak'] >= 7;
+          break;
+        default:
+          isUnlocked = true; // Default to unlocked for unknown difficulties
+      }
+      
+      if (!isUnlocked) {
+        String lockMessage = 'This $_difficulty workout is locked. ';
+        switch (_difficulty) {
+          case 'Intermediate':
+            lockMessage += 'Complete 3 total workouts to unlock.';
+            break;
+          case 'Advanced':
+            lockMessage += 'Complete 10 total workouts and maintain a 3-day streak to unlock.';
+            break;
+          case 'Elite':
+            lockMessage += 'Complete 20 total workouts and maintain a 7-day streak to unlock.';
+            break;
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(lockMessage),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -168,7 +243,9 @@ class _WorkoutLoggingPageState extends State<WorkoutLoggingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Log Workout'),
+        title: Text(_workoutType != null && _difficulty != null 
+            ? 'Log $_difficulty Workout - $_workoutType' 
+            : 'Log Workout'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
@@ -306,6 +383,62 @@ class _WorkoutLoggingPageState extends State<WorkoutLoggingPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
+
+                      // Workout Type Card (if available)
+                      if (_workoutType != null && _difficulty != null) ...[
+                        Card(
+                          color: _difficulty == 'Beginner' 
+                              ? Colors.green.withOpacity(0.1)
+                              : _difficulty == 'Intermediate'
+                                  ? Colors.orange.withOpacity(0.1)
+                                  : _difficulty == 'Advanced'
+                                      ? Colors.red.withOpacity(0.1)
+                                      : Colors.purple.withOpacity(0.1),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _difficulty == 'Beginner' 
+                                      ? Icons.looks_one
+                                      : _difficulty == 'Intermediate'
+                                          ? Icons.looks_two
+                                          : _difficulty == 'Advanced'
+                                              ? Icons.looks_3
+                                              : Icons.star,
+                                  color: _difficulty == 'Beginner' 
+                                      ? Colors.green
+                                      : _difficulty == 'Intermediate'
+                                          ? Colors.orange
+                                          : _difficulty == 'Advanced'
+                                              ? Colors.red
+                                              : Colors.purple,
+                                  size: 32,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$_difficulty Level',
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        _workoutType!,
+                                        style: Theme.of(context).textTheme.bodyLarge,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
 
                       // AI Pose Detection Card
                       Card(

@@ -37,6 +37,9 @@ class LocalWorkout extends HiveObject {
   @HiveField(10)
   String? userId; // User identification for data isolation
 
+  @HiveField(11)
+  bool isSynced; // Track if workout has been synced to backend
+
   LocalWorkout({
     required this.id,
     required this.name,
@@ -49,6 +52,7 @@ class LocalWorkout extends HiveObject {
     this.isCompleted = false,
     this.notes,
     this.userId,
+    this.isSynced = false,
   });
 
   // Convert to JSON for API calls
@@ -65,6 +69,7 @@ class LocalWorkout extends HiveObject {
       'isCompleted': isCompleted,
       'notes': notes,
       'userId': userId,
+      'isSynced': isSynced,
     };
   }
 
@@ -84,6 +89,38 @@ class LocalWorkout extends HiveObject {
       isCompleted: json['isCompleted'] ?? false,
       notes: json['notes'],
       userId: json['userId'],
+      isSynced: json['isSynced'] ?? false,
+    );
+  }
+
+  // Create a copy of the workout with modified properties
+  LocalWorkout copyWith({
+    String? id,
+    String? name,
+    String? description,
+    int? duration,
+    int? calories,
+    String? category,
+    DateTime? date,
+    List<LocalExercise>? exercises,
+    bool? isCompleted,
+    String? notes,
+    String? userId,
+    bool? isSynced,
+  }) {
+    return LocalWorkout(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      duration: duration ?? this.duration,
+      calories: calories ?? this.calories,
+      category: category ?? this.category,
+      date: date ?? this.date,
+      exercises: exercises ?? this.exercises,
+      isCompleted: isCompleted ?? this.isCompleted,
+      notes: notes ?? this.notes,
+      userId: userId ?? this.userId,
+      isSynced: isSynced ?? this.isSynced,
     );
   }
 }
@@ -136,76 +173,6 @@ class LocalExercise extends HiveObject {
       weight: json['weight']?.toDouble(),
       duration: json['duration'],
       notes: json['notes'],
-    );
-  }
-}
-
-@HiveType(typeId: 2)
-class LocalUser extends HiveObject {
-  @HiveField(0)
-  String id;
-
-  @HiveField(1)
-  String username;
-
-  @HiveField(2)
-  String email;
-
-  @HiveField(3)
-  int workoutStreak;
-
-  @HiveField(4)
-  int totalTokens;
-
-  @HiveField(5)
-  DateTime lastWorkoutDate;
-
-  @HiveField(6)
-  Map<String, dynamic>? preferences;
-
-  @HiveField(7)
-  List<String>? purchasedRewards;
-
-  @HiveField(8)
-  int tokens; // Current available tokens
-
-  LocalUser({
-    required this.id,
-    required this.username,
-    required this.email,
-    this.workoutStreak = 0,
-    this.totalTokens = 0,
-    required this.lastWorkoutDate,
-    this.preferences,
-    this.purchasedRewards,
-    this.tokens = 0,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'username': username,
-      'email': email,
-      'workoutStreak': workoutStreak,
-      'totalTokens': totalTokens,
-      'lastWorkoutDate': lastWorkoutDate.toIso8601String(),
-      'preferences': preferences,
-      'purchasedRewards': purchasedRewards,
-      'tokens': tokens,
-    };
-  }
-
-  factory LocalUser.fromJson(Map<String, dynamic> json) {
-    return LocalUser(
-      id: json['id'],
-      username: json['username'],
-      email: json['email'],
-      workoutStreak: json['workoutStreak'] ?? 0,
-      totalTokens: json['totalTokens'] ?? 0,
-      lastWorkoutDate: DateTime.parse(json['lastWorkoutDate']),
-      preferences: json['preferences'],
-      purchasedRewards: json['purchasedRewards']?.cast<String>(),
-      tokens: json['tokens'] ?? 0,
     );
   }
 }

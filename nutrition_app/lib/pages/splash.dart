@@ -16,30 +16,17 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // DEV bypass logic: if DEV_BYPASS=true in .env and debug mode, set isLoggedIn and username
-    final devBypass = dotenv.env['DEV_BYPASS']?.toLowerCase() == 'true';
-    final devUser = dotenv.env['DEV_BYPASS_USER'] ?? 'dev_user';
-    bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    // Clear any existing login state to ensure fresh start
+    await prefs.setBool('isLoggedIn', false);
+    await prefs.remove('user_token');
+    await prefs.remove('username');
+    await prefs.remove('user_email');
+    await prefs.remove('user_fullname');
 
-    // Only run bypass in debug mode
-    assert(() {
-      if (devBypass) {
-        prefs.setBool('isLoggedIn', true);
-        prefs.setString('username', devUser);
-        isLoggedIn = true;
-      }
-      return true;
-    }());
-
-    // Delay for 3 seconds, then navigate to the appropriate screen
+    // Delay for 3 seconds, then always navigate to welcome screen
     await Future.delayed(const Duration(seconds: 3));
-    if (isLoggedIn) {
-      Navigator.of(context)
-          .pushReplacementNamed('/currentPage'); // Home screen route
-    } else {
-      Navigator.of(context)
-          .pushReplacementNamed('/welcome'); // Welcome/Login screen route
-    }
+    Navigator.of(context)
+        .pushReplacementNamed('/welcome'); // Always go to Welcome screen
   }
 
   @override
