@@ -810,23 +810,40 @@ class DataService {
     final user = LocalStorageService.getCurrentUser();
     if (user != null) {
       final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
       final lastWorkout = user.lastWorkoutDate;
       
+      print('STREAK UPDATE: Current streak before update: ${user.workoutStreak}');
+      print('STREAK UPDATE: Last workout date: $lastWorkout');
+      print('STREAK UPDATE: Today: $today');
+      
       if (lastWorkout != null) {
-        final daysDiff = now.difference(lastWorkout).inDays;
+        final lastWorkoutDay = DateTime(lastWorkout.year, lastWorkout.month, lastWorkout.day);
+        final daysDiff = today.difference(lastWorkoutDay).inDays;
+        print('STREAK UPDATE: Days difference: $daysDiff');
 
-        if (daysDiff == 1) {
+        if (daysDiff == 0) {
+          // Same day - ensure streak is at least 1
+          if (user.workoutStreak == 0) {
+            user.workoutStreak = 1;
+            print('STREAK UPDATE: Same day, set streak to 1 (was 0)');
+          } else {
+            print('STREAK UPDATE: Same day, keeping existing streak: ${user.workoutStreak}');
+          }
+          // If already has a streak, don't change it (multiple workouts same day)
+        } else if (daysDiff == 1) {
           // Consecutive day - increment streak
           user.workoutStreak += 1;
-        } else if (daysDiff == 0) {
-          // Same day - no change to streak
+          print('STREAK UPDATE: Consecutive day, incremented streak to: ${user.workoutStreak}');
         } else {
-          // Streak broken - reset to 1
+          // Streak broken (more than 1 day gap) - reset to 1 (starting fresh today)
           user.workoutStreak = 1;
+          print('STREAK UPDATE: Streak broken (${daysDiff} days gap), reset to 1');
         }
       } else {
         // First workout ever
         user.workoutStreak = 1;
+        print('STREAK UPDATE: First workout ever, set streak to 1');
       }
 
       user.lastWorkoutDate = now;
