@@ -23,10 +23,6 @@ class CustomBottomNavBar extends StatelessWidget {
           label: '',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.add_circle_outline),
-          label: '',
-        ),
-        BottomNavigationBarItem(
           icon: Icon(Icons.grid_view),
           label: '',
         ),

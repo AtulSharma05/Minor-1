@@ -14,7 +14,6 @@ class CurrentPageState extends State<CurrentPage> {
     // Placeholder pages, replace with actual pages
     const LineChartSample6(),
     const HomePage(),
-    const TrackersPage(), // TrackersPage
     const FeaturesPage(),
     const ProfilePage(),
   ];
