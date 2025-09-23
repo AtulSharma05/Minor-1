@@ -12,7 +12,7 @@ class CurrentPageState extends State<CurrentPage> {
 
   final List<Widget> _pages = [
     // Placeholder pages, replace with actual pages
-    const LineChartSample6(),
+    const DashboardPage(),
     const HomePage(),
     const FeaturesPage(),
     const ProfilePage(),
