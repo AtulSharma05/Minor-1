@@ -1,4 +1,5 @@
 import '../core/app_export.dart';
+import '../services/local_auth_service.dart';
 
 class AuthNotifier extends ChangeNotifier {
   final UserRepository _userRepository = UserRepository();
@@ -16,27 +17,39 @@ class AuthNotifier extends ChangeNotifier {
     _errorMessage = null;
     _successMessage = null;
     notifyListeners();
-    final token = dotenv.env['TOKEN'] ?? '';
     
     try {
-      User user = User(
-          username: username,
-          email_id: email,
-          password: password,
-          token: token);
-      final result = await _userRepository.signup(user);
-      
-      if (result == true) {
-        _successMessage = "Account created successfully";
+      // Check if backend is enabled
+      if (!DataService.isBackendEnabled) {
+        // Use simple local authentication
+        final result = await LocalAuthService.registerUser(username, email, password);
+        if (result) {
+          _successMessage = "Account created successfully (Local)";
+        } else {
+          _errorMessage = "User already exists or registration failed";
+        }
       } else {
-        _errorMessage = "Signup failed. User might already exist.";
+        // Use existing backend flow
+        final token = dotenv.env['TOKEN'] ?? '';
+        User user = User(
+            username: username,
+            email_id: email,
+            password: password,
+            token: token);
+        final result = await _userRepository.signup(user);
+        
+        if (result == true) {
+          _successMessage = "Account created successfully";
+        } else {
+          _errorMessage = "Signup failed. User might already exist.";
+        }
       }
     } catch (e) {
       print('AUTH_NOTIFIER: Exception in signup: $e');
       _errorMessage = "Signup failed: $e";
     } finally {
       _isLoading = false;
-      notifyListeners(); // Notify UI of state changes
+      notifyListeners();
     }
   }
 
@@ -45,64 +58,78 @@ class AuthNotifier extends ChangeNotifier {
     _errorMessage = null;
     _successMessage = null;
     notifyListeners();
-    final token = dotenv.env['TOKEN'] ?? '';
     
     print('AUTH_NOTIFIER: Starting login for user: $username');
     
     try {
-      User user = User(username: username, password: password, token: token);
-      final result = await _userRepository.login(user);
-      
-      print('AUTH_NOTIFIER: Login result received: $result');
-      
-      if (result != null && result['success'] == true) {
-        print('AUTH_NOTIFIER: Login result success = true');
-        _successMessage = "Login successful";
-
-        // Extract user data from backend response
-        final userData = result['userData'];
-        final accessToken = result['token'];
-        print('AUTH_NOTIFIER: userData = $userData');
-        print('AUTH_NOTIFIER: accessToken = $accessToken');
-        
-        // Save login status and user info to shared preferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('username', userData['username'] ?? username);
-        await prefs.setString('user_email', userData['email'] ?? '');
-        await prefs.setString('user_fullname', userData['fullName'] ?? '');
-        await prefs.setString('user_token', accessToken ?? ''); // Fixed: use 'user_token' instead of 'access_token'
-        await prefs.setBool('isLoggedIn', true);
-        print('AUTH_NOTIFIER: Shared preferences saved');
-        
-        // Also save user profile using DataService for local storage
-        print('AUTH_NOTIFIER: About to call DataService.saveUserProfile');
-        final saveResult = await DataService.saveUserProfile(
-          username: userData['username'] ?? username,
-          email: userData['email'] ?? '',
-          preferences: {
-            'fullName': userData['fullName'] ?? '',
-            'age': userData['age'],
-            'height': userData['height'],
-            'weight': userData['weight'],
-            'bmi': userData['bmi'],
-            'bmiCategory': userData['bmiCategory'],
-          },
-        );
-        print('AUTH_NOTIFIER: DataService.saveUserProfile result = $saveResult');
-        
-        // Automatically sync data after successful login
-        print('AUTH_NOTIFIER: Starting automatic data sync after login');
-        try {
-          final syncResult = await DataService.synchronizeData();
-          print('AUTH_NOTIFIER: Login sync result: ${syncResult['message']}');
-        } catch (e) {
-          print('AUTH_NOTIFIER: Login sync failed: $e');
-          // Don't fail login if sync fails
+      // Check if backend is enabled
+      if (!DataService.isBackendEnabled) {
+        // Use simple local authentication
+        final result = await LocalAuthService.loginUser(username, password);
+        if (result != null && result['success'] == true) {
+          _successMessage = "Login successful (Local)";
+          print('AUTH_NOTIFIER: Local login successful for user: $username');
+        } else {
+          _errorMessage = "Invalid username or password";
+          print('AUTH_NOTIFIER: Local login failed for user: $username');
         }
       } else {
-        print('AUTH_NOTIFIER: Login result was null or success = false');
-        print('AUTH_NOTIFIER: result = $result');
-        _errorMessage = result?['error'] ?? "Invalid username or password. Please try again.";
+        // Use existing backend flow
+        final token = dotenv.env['TOKEN'] ?? '';
+        User user = User(username: username, password: password, token: token);
+        final result = await _userRepository.login(user);
+        
+        print('AUTH_NOTIFIER: Login result received: $result');
+        
+        if (result != null && result['success'] == true) {
+          print('AUTH_NOTIFIER: Login result success = true');
+          _successMessage = "Login successful";
+
+          // Extract user data from backend response
+          final userData = result['userData'];
+          final accessToken = result['token'];
+          print('AUTH_NOTIFIER: userData = $userData');
+          print('AUTH_NOTIFIER: accessToken = $accessToken');
+          
+          // Save login status and user info to shared preferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('username', userData['username'] ?? username);
+          await prefs.setString('user_email', userData['email'] ?? '');
+          await prefs.setString('user_fullname', userData['fullName'] ?? '');
+          await prefs.setString('user_token', accessToken ?? ''); // Fixed: use 'user_token' instead of 'access_token'
+          await prefs.setBool('isLoggedIn', true);
+          print('AUTH_NOTIFIER: Shared preferences saved');
+          
+          // Also save user profile using DataService for local storage
+          print('AUTH_NOTIFIER: About to call DataService.saveUserProfile');
+          final saveResult = await DataService.saveUserProfile(
+            username: userData['username'] ?? username,
+            email: userData['email'] ?? '',
+            preferences: {
+              'fullName': userData['fullName'] ?? '',
+              'age': userData['age'],
+              'height': userData['height'],
+              'weight': userData['weight'],
+              'bmi': userData['bmi'],
+              'bmiCategory': userData['bmiCategory'],
+            },
+          );
+          print('AUTH_NOTIFIER: DataService.saveUserProfile result = $saveResult');
+          
+          // Automatically sync data after successful login
+          print('AUTH_NOTIFIER: Starting automatic data sync after login');
+          try {
+            final syncResult = await DataService.synchronizeData();
+            print('AUTH_NOTIFIER: Login sync result: ${syncResult['message']}');
+          } catch (e) {
+            print('AUTH_NOTIFIER: Login sync failed: $e');
+            // Don't fail login if sync fails
+          }
+        } else {
+          print('AUTH_NOTIFIER: Login result was null or success = false');
+          print('AUTH_NOTIFIER: result = $result');
+          _errorMessage = result?['error'] ?? "Invalid username or password. Please try again.";
+        }
       }
     } catch (e) {
       print('AUTH_NOTIFIER: Exception in login: $e');

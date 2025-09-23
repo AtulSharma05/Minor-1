@@ -1,7 +1,9 @@
 import 'core/app_export.dart';
 import 'services/local_storage_service.dart';
+import 'services/local_auth_service.dart';
 import 'services/data_service.dart';
 import 'widgets/workout_route_guard.dart';
+import 'pages/auth_debug_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,6 +13,9 @@ void main() async {
   
   // Initialize local storage
   await LocalStorageService.initialize();
+  
+  // Initialize local authentication service
+  await LocalAuthService.initialize();
   
   runApp(
     MultiProvider(
@@ -85,6 +90,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/rewards': (context) => const RewardsPage(),
         '/pose_detection': (context) => const PoseDetectionPage(),
         '/metronome_settings': (context) => const MetronomeSettingsPage(),
+        '/auth-debug': (context) => const AuthDebugPage(),
       },
     );
   }
